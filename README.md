@@ -7,7 +7,7 @@ Implementation of neural class expression synthesizers (NCES)
 
 Clone this repository:
 ```
-https://github.com/fosterreproducibleresearch/NCES.git
+https://github.com/fosterreproducibleresearch/NCES2.git
 ``` 
 
 Make sure Anaconda3 is installed in your working environment then run the following to install all required librairies for NCES:
@@ -17,7 +17,7 @@ conda env create -f environment.yml
 A conda environment (nces) will be created. Next activate the environment:
 ``` conda activate nces```
 
-Download Datasets from [drive](https://drive.google.com/file/d/16tmjo1OZ5MqY_JwXUg5Fj1WxfWtOXACe/view?usp=sharing), extract it into NCES/Method and rename the folder as Datasets
+Download Datasets from [drive](https://drive.google.com/file/d/16tmjo1OZ5MqY_JwXUg5Fj1WxfWtOXACe/view?usp=sharing), extract it into NCES2/Method and rename the folder as Datasets
 
 To run search based algorithms CELOE, OCEL, ELTL and ECII, install Java 8+ and Maven 3.6.3+
 
@@ -30,7 +30,7 @@ Clone DL-Foil from [bitbucket](https://bitbucket.org/grizzo001/dl-foil.git) into
 ### NCES (Ours)
 
 
-*Open a terminal and navigate into Method/reproduce_results/* ``` cd NCES/Method/reproduce_results/```
+*Open a terminal and navigate into Method/reproduce_results/* ``` cd NCES2/Method/reproduce_results/```
 - Reproduce training NCES: ``` python train_nces/reproduce_training_concept_synthesizers_[name_of_knowledge_base]_kb.py```
 
 - Reproduce training NCES on all KBs: ``` sh reproduce_training_nces_on_all_kbs.sh```
@@ -41,12 +41,12 @@ Clone DL-Foil from [bitbucket](https://bitbucket.org/grizzo001/dl-foil.git) into
 
 ### DL-Learner (Lehmann et al.)
 
-*Open a terminal and navigate into Method/dllearner/* ``` cd NCES/Method/dllearner/```
+*Open a terminal and navigate into Method/dllearner/* ``` cd NCES2/Method/dllearner/```
 - Reproduce CELOE, OCEL, and ELTL concept learning results: ``` python reproduce_dllearner_experiment.py --algo --kb --max_runtime --num_probs```
 
 ### DL-Foil (Fanizzi et al.)
 
-*Open a terminal and navigate into Method/dl-foil/* ``` cd NCES/Method/dl-foil/```
+*Open a terminal and navigate into Method/dl-foil/* ``` cd NCES2/Method/dl-foil/```
 
 - Run mvn package
 
@@ -56,7 +56,7 @@ Clone DL-Foil from [bitbucket](https://bitbucket.org/grizzo001/dl-foil.git) into
 
 ### ECII (Sarker et al.)
 
-*Open a terminal and navigate into Method/ecii/* ``` cd NCES/Method/ecii/```
+*Open a terminal and navigate into Method/ecii/* ``` cd NCES2/Method/ecii/```
 
 - Run `python generate_config_ecii.py --kb "knowledge base name(s)" ` to prepare configuration files
 
