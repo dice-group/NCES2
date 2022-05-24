@@ -1,0 +1,5 @@
+#!/bin/sh
+python ./learning_problems/generate_learning_problems_carcinogenesis_kg.py
+python ./learning_problems/generate_learning_problems_family_benchmark_kg.py
+python ./learning_problems/generate_learning_problems_mutagenesis_kg.py
+python ./learning_problems/generate_learning_problems_semantic_bible_kg.py
