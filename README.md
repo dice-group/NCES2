@@ -7,7 +7,7 @@ Implementation of neural class expression synthesizers (NCES)
 
 Clone this repository:
 ```
-https://github.com/fosterreproducibleresearch/NCES2.git
+git clone https://github.com/dice-group/NCES2.git
 ``` 
 
 Make sure Anaconda3 is installed in your working environment then run the following to install all required librairies for NCES:
