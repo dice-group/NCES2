@@ -1,7 +1,7 @@
 import torch, torch.nn as nn, numpy as np
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-from functools import reduce
 import os, random
+import pandas as pd
 
 seed = 42
 random.seed(seed)
@@ -14,6 +14,7 @@ if torch.cuda.is_available():
     # When running on the CuDNN backend, two further options must be set
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    
     
 class ConceptLearner_LSTM(nn.Module):
     def __init__(self, kwargs):
@@ -164,71 +165,82 @@ class ConceptLearner_LSTM_As_MT(nn.Module):
         self.kwargs = kwargs
         self.name = 'LSTM_As_MT'
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.loss = nn.CrossEntropyLoss()
         self.encoder = nn.LSTM(kwargs['input_size'], kwargs['rnn_n_hidden'], kwargs['rnn_n_layers'], dropout=kwargs['drop_prob'], batch_first=True)
         self.decoder = nn.LSTM(kwargs['embedding_dim'], kwargs['rnn_n_hidden'], kwargs['rnn_n_layers'], dropout=kwargs['drop_prob'], batch_first=True)
-        self.embedding = nn.Embedding(kwargs['output_size']+2, kwargs['embedding_dim'])
-        #self.fc = nn.Sequential(nn.Linear(kwargs['rnn_n_hidden'], 5*kwargs['rnn_n_hidden']),
-        #                        nn.Linear(5*kwargs['rnn_n_hidden'], 2*kwargs['rnn_n_hidden']), 
-        #                        nn.Linear(2*kwargs['rnn_n_hidden'],kwargs['output_size']+2))
-        self.vocab = ['Start']+kwargs['vocab']+['End']
+        self.embedding = nn.Embedding(kwargs['output_size']+3, kwargs['embedding_dim'])
+        self.vocab = ['Pad']+['Start']+kwargs['vocab']+['End']
         self.fc = nn.Linear(kwargs['rnn_n_hidden'], len(self.vocab))
         self.token_to_idx = {tk: i for i,tk in enumerate(self.vocab)}
+        self.loss = nn.CrossEntropyLoss(ignore_index=self.token_to_idx['Pad'])
         
         
-    def compute_loss(self, tg, h):
-        tg = ['Start'] + tg + ['End']
-        tg_ = []
-        for i in range(len(tg)-1):
-            tg_.append(tg[i])
-            inp = self.embedding(torch.tensor(list(map(lambda x: self.token_to_idx[x], tg_))).unsqueeze(0).to(self.device))
-            label = torch.tensor(self.token_to_idx[tg[i+1]]).unsqueeze(0).long()
-            out, h = self.decoder(inp, h)
-            scores = torch.sigmoid(self.fc(out[:, -1, :].view(1, -1)))
+    def compute_loss(self, hidden, target):
+        start, end, pad = 'Start', 'End', 'Pad'
+        max_len = max([len(tg) for tg in target])+2
+        target = np.array([[start]+tg+[end]+[pad]*(max_len-len(tg)) for tg in target], dtype=object)
+        for i in range(target.shape[1]-1):
+            tg_ = target[:,:i+1]
+            inp = pd.DataFrame(tg_).applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().numpy())
+            inp = torch.from_numpy(np.concatenate(inp.values.tolist()))
+            inp = inp.reshape(hidden[0].shape[1], tg_.shape[1], -1).requires_grad_()
+            label = list(map(self.token_to_idx.get, target[:, i+1]))
+            label = torch.tensor(label).long()
+            out, hidden = self.decoder(inp, hidden)
+            scores = torch.sigmoid(self.fc(out[:, -1, :].view(out.shape[0], -1)))
             if i == 0:
                 loss = self.loss(scores, label)
             else:
                 loss += self.loss(scores, label)
-        return loss
+        return loss/len(target)
+        
     
-    def forward_compute(self, h):
-        aligned_chars = []
-        start, end = 'Start', 'End'
-        for i in range(h[0].shape[1]):
-            preds = [start]
-            sampled = start; it = 0
-            h_dec = (h[0][:, i, :].unsqueeze(1).contiguous(), h[1][:, i, :].unsqueeze(1).contiguous())
-            while sampled != end and it < self.kwargs['max_num_tokens']:
-                embs = self.embedding(torch.tensor(list(map(lambda x: self.token_to_idx[x], preds))).to(self.device))
-                out, h_dec = self.decoder(embs.reshape(1, embs.shape[0], embs.shape[1]), h_dec)
-                scores = torch.sigmoid(self.fc(out[:, -1, :].view(1, -1)))
-                id_max = scores.argmax(1)
-                sampled = self.vocab[id_max]
-                preds.append(sampled)
-                it += 1
-            if preds[-1] == end:
-                preds.pop()
-            if len(preds) > 1:
-                preds.pop(0)
-            aligned_chars.append(np.array(preds, dtype=object).sum())
-        return aligned_chars
+    @staticmethod
+    def get_pred(pred):
+        pred = pred.tolist()
+        pred.pop(0)
+        for i in range(len(pred)):
+            if pred[i] in ['Pad', 'End']:
+                return pred[:i]
+        return pred
+        
+    def forward_compute(self, hidden, target=None):
+        start, end, pad = 'Start', 'End', 'Pad'
+        max_len = max([len(tg) for tg in target])+2 if target is not None else self.kwargs['max_num_tokens']+2
+        for i in range(max_len-1):
+            if i == 0:
+                preds = np.array([[start]*hidden[0].shape[1]]).reshape(-1,1)
+                embs = pd.DataFrame(preds)
+                embs = embs.applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().numpy())
+                embs = torch.from_numpy(np.concatenate(embs.values.tolist()))
+                embs = embs.reshape(hidden[0].shape[1], preds.shape[1], -1).requires_grad_()
+                out, hidden = self.decoder(embs, hidden)
+                scores = torch.sigmoid(self.fc(out[:, -1, :].view(out.shape[0], -1)))
+                id_max = scores.argmax(1).tolist()
+                sampled = np.array(self.vocab)[id_max]
+                preds = np.concatenate([preds, sampled.reshape(-1,1)], axis=1)
+            else:
+                embs = pd.DataFrame(preds)
+                embs = embs.applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().numpy())
+                embs = torch.from_numpy(np.concatenate(embs.values.tolist()))
+                embs = embs.reshape(hidden[0].shape[1], preds.shape[1], -1).requires_grad_()
+                out, hidden = self.decoder(embs, hidden)
+                scores = torch.sigmoid(self.fc(out[:, -1, :].view(out.shape[0], -1)))
+                id_max = scores.argmax(1).tolist()
+                sampled = np.array(self.vocab)[id_max]
+                preds = np.concatenate([preds, sampled.reshape(-1,1)], axis=1)
+        return np.array(list(map(self.get_pred, preds)), dtype=object).sum(1)
     
     def forward(self, source, target=None):
-        _, h = self.encoder(source)
-        #preds = self.forward_compute(h)
+        _, hidden = self.encoder(source)
         loss = None
-        if target is not None: #training mode
-            for i,tg in enumerate(target):
-                h_ = (h[0][:, i, :].unsqueeze(1).contiguous(), h[1][:, i, :].unsqueeze(1).contiguous())
-                if i == 0:
-                    loss = self.compute_loss(tg, h_)
-                else:
-                    loss += self.compute_loss(tg, h_)
-        return h, loss/(source.shape[0])
+        if target is not None:
+            loss = self.compute_loss(hidden, target)
+            prediction = self.forward_compute(hidden, target)
+        else:
+            prediction = self.forward_compute(hidden)
+        return loss, prediction
             
 
-
-        
 class ConceptLearner_GRU_As_MT(nn.Module):
     def __init__(self, kwargs):
         super().__init__()
@@ -238,50 +250,78 @@ class ConceptLearner_GRU_As_MT(nn.Module):
         self.loss = nn.CrossEntropyLoss()
         self.encoder = nn.GRU(kwargs['input_size'], kwargs['rnn_n_hidden'], kwargs['rnn_n_layers'], dropout=kwargs['drop_prob'], batch_first=True)
         self.decoder = nn.GRU(kwargs['embedding_dim'], kwargs['rnn_n_hidden'], kwargs['rnn_n_layers'], dropout=kwargs['drop_prob'], batch_first=True)
-        self.embedding = nn.Embedding(kwargs['output_size']+2, kwargs['embedding_dim'])
-        self.fc = nn.Sequential(nn.Linear(kwargs['rnn_n_hidden'], 5*kwargs['rnn_n_hidden']),
-                                nn.Linear(5*kwargs['rnn_n_hidden'], 2*kwargs['rnn_n_hidden']), 
-                                nn.Linear(2*kwargs['rnn_n_hidden'],kwargs['output_size']+2))
-        self.vocab = ['Start']+kwargs['vocab']+['End']
+        self.embedding = nn.Embedding(kwargs['output_size']+3, kwargs['embedding_dim'])
+        self.vocab = ['Pad']+['Start']+kwargs['vocab']+['End']
+        self.fc = nn.Linear(kwargs['rnn_n_hidden'], len(self.vocab))
         self.token_to_idx = {tk: i for i,tk in enumerate(self.vocab)}
+        self.loss = nn.CrossEntropyLoss(ignore_index=self.token_to_idx['Pad'])
+        
+        
+    def compute_loss(self, hidden, target):
+        start, end, pad = 'Start', 'End', 'Pad'
+        max_len = max([len(tg) for tg in target])+2
+        target = np.array([[start]+tg+[end]+[pad]*(max_len-len(tg)) for tg in target], dtype=object)
+        for i in range(target.shape[1]-1):
+            tg_ = target[:,:i+1]
+            inp = pd.DataFrame(tg_).applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().numpy())
+            inp = torch.from_numpy(np.concatenate(inp.values.tolist()))
+            inp = inp.reshape(hidden.shape[1], tg_.shape[1], -1).requires_grad_()
+            label = list(map(self.token_to_idx.get, target[:, i+1]))
+            label = torch.tensor(label).long()
+            out, hidden = self.decoder(inp, hidden)
+            scores = torch.sigmoid(self.fc(out[:, -1, :].view(out.shape[0], -1)))
+            if i == 0:
+                loss = self.loss(scores, label)
+            else:
+                loss += self.loss(scores, label)
+        return loss/len(target)
+        
+    
+    @staticmethod
+    def get_pred(pred):
+        pred = pred.tolist()
+        pred.pop(0)
+        for i in range(len(pred)):
+            if pred[i] in ['Pad', 'End']:
+                return pred[:i]
+        return pred
+        
+    def forward_compute(self, hidden, target=None):
+        start, end, pad = 'Start', 'End', 'Pad'
+        max_len = max([len(tg) for tg in target])+2 if target is not None else self.kwargs['max_num_tokens']+2
+        for i in range(max_len-1):
+            if i == 0:
+                preds = np.array([[start]*hidden.shape[1]]).reshape(-1,1)
+                embs = pd.DataFrame(preds)
+                embs = embs.applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().numpy())
+                embs = torch.from_numpy(np.concatenate(embs.values.tolist()))
+                embs = embs.reshape(hidden.shape[1], preds.shape[1], -1).requires_grad_()
+                out, hidden = self.decoder(embs, hidden)
+                scores = torch.sigmoid(self.fc(out[:, -1, :].view(out.shape[0], -1)))
+                id_max = scores.argmax(1).tolist()
+                sampled = np.array(self.vocab)[id_max]
+                preds = np.concatenate([preds, sampled.reshape(-1,1)], axis=1)
+            else:
+                embs = pd.DataFrame(preds)
+                embs = embs.applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().numpy())
+                embs = torch.from_numpy(np.concatenate(embs.values.tolist()))
+                embs = embs.reshape(hidden.shape[1], preds.shape[1], -1).requires_grad_()
+                out, hidden = self.decoder(embs, hidden)
+                scores = torch.sigmoid(self.fc(out[:, -1, :].view(out.shape[0], -1)))
+                id_max = scores.argmax(1).tolist()
+                sampled = np.array(self.vocab)[id_max]
+                preds = np.concatenate([preds, sampled.reshape(-1,1)], axis=1)
+        return np.array(list(map(self.get_pred, preds)), dtype=object).sum(1)
     
     def forward(self, source, target=None):
-        _, h = self.encoder(source)
-        if target is None: # inference mode
-            aligned_chars = []
-            start, end = 'Start', 'End'
-            for i in range(source.shape[0]):
-                preds = [start]
-                sampled = start; it = 0
-                h_dec = (h[0][:, i, :].unsqueeze(1).contiguous(), h[1][:, i, :].unsqueeze(1).contiguous())
-                while sampled != end and it < self.kwargs['max_num_tokens']:
-                    embs = self.embedding(torch.tensor(list(map(lambda x: self.token_to_idx[x], preds))).to(self.device))
-                    out, _ = self.decoder(embs.reshape(1, embs.shape[0], embs.shape[1]), h_dec)
-                    scores = torch.sigmoid(self.fc(out.sum(1).view(1, -1)), 1)
-                    id_max = scores.argmax(1)
-                    sampled = self.vocab[id_max]
-                    preds.append(sampled)
-                    it += 1
-                if preds[-1] == end:
-                    preds.pop()
-                if len(preds) > 1:
-                    preds.pop(0)
-                aligned_chars.append(np.array(preds, dtype=object).sum())
-            return aligned_chars
-        else: #training mode
-            aligned_chars = []
-            start, end = 'Start', 'End'
-            lengths = [len(tg)+2 for tg in target]
-            max_len = max(lengths)-2
-            tg_inputs = torch.cat([self.embedding(torch.tensor(list(map(lambda x: self.token_to_idx[x], 
-                                    [start]+tg+[end]+[end]*(max_len-len(tg)))))).unsqueeze(0) for tg in target], dim=0).to(self.device)
-            tg_inputs = pack_padded_sequence(tg_inputs, lengths, batch_first=True, enforce_sorted=False) #(input, lengths, batch_first=False, enforce_sorted=True)
-            out, _ = self.decoder(tg_inputs, h)
-            out, _ = pad_packed_sequence(out, batch_first=True)
-            scores = torch.sigmoid(self.fc(out.sum(1).view(out.shape[0], -1)), 1)
-            self.Loss = self.loss(scores, torch.tensor([self.token_to_idx[end]]*scores.shape[0]).long()).to(self.device)
-            return self.Loss
-
+        _, hidden = self.encoder(source)
+        loss = None
+        if target is not None:
+            loss = self.compute_loss(hidden, target)
+            prediction = self.forward_compute(hidden, target)
+        else:
+            prediction = self.forward_compute(hidden)
+        return loss, prediction
     
         
         

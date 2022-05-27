@@ -34,7 +34,7 @@ kwargs = {"learner_name":"GRU", "emb_model_name":"", 'knowledge_graph_path': bas
           "pretrained_embedding_path":base_path+"Datasets/family-benchmark/Model_weights/ConEx_GRU.pt",
           "pretrained_concept_synthesizer":base_path+"Datasets/family-benchmark/Model_weights/GRU.pt", 
           "path_to_csv_embeddings":base_path+"Embeddings/family-benchmark/ConEx_entity_embeddings.csv",
-          "learning_rate":0.001, "decay_rate":0, 'grad_clip_value':5., "path_to_triples":path_to_triples, 'max_num_atom_repeat': max_num_atom_repeat,
+          "learning_rate":0.0001, "decay_rate":0, 'grad_clip_value':10., "path_to_triples":path_to_triples, 'max_num_atom_repeat': max_num_atom_repeat,
           'index_score_upper_bound':10., 'index_score_lower_bound_rate': 0.8, 'max_num_tokens':30,
           "random_seed":seed, "embedding_dim":20, "num_entities":len(triples.entities),
           "num_relations":len(triples.relations), "num_examples":101, "input_dropout":0.0, 'drop_prob':0.1,
@@ -42,7 +42,7 @@ kwargs = {"learner_name":"GRU", "emb_model_name":"", 'knowledge_graph_path': bas
           "hidden_dropout":0.1, "rnn_n_layers":2, 'input_size':40,
           'rnn_n_hidden':100,'seed':10, 'kernel_w':5, 'kernel_h':11, 'stride_w':1, 'stride_h':2, 'conv_out':576}
 
-Models = ["LSTM_As_MT"]#["GRU", "LSTM", "CNN"]
+Models = ["GRU_As_MT", "LSTM_As_MT"] #["GRU", "LSTM", "CNN"]
 
 experiment = Experiment(kwargs)
 
@@ -57,4 +57,4 @@ if final:
     data_train = data
     test = False
     cross_validate = False
-experiment.train_all_nets(Models, data_train, data_test, epochs=1000, cs_batch_size=512, tc_batch_size=1024, kf_n_splits=2, cross_validate=cross_validate, test=test, save_model = save_model, include_embedding_loss=True, optimizer = 'Adam', tc_label_smoothing=0.9, record_runtime=record_runtime, final=final)
+experiment.train_all_nets(Models, data_train, data_test, epochs=1000, cs_batch_size=128, tc_batch_size=256, kf_n_splits=2, cross_validate=cross_validate, test=test, save_model = save_model, include_embedding_loss=True, optimizer = 'Adam', tc_label_smoothing=0.9, record_runtime=record_runtime, final=final)

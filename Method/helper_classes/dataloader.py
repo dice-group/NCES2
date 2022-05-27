@@ -6,8 +6,9 @@ import numpy as np, random, torch, pandas as pd
 from typing import List
 from util.data import Data
 from abc import ABCMeta
+random.seed(42)
+from tqdm import tqdm
 
-random.seed(1)
 
 class CSDataLoader(BaseConceptSynthesis, Data, metaclass=ABCMeta):
     def __init__(self, kwargs):
@@ -21,10 +22,10 @@ class CSDataLoader(BaseConceptSynthesis, Data, metaclass=ABCMeta):
     def _(self, embeddings: pd.DataFrame, data=None, batch_size=128, shuffle=True, **kwargs):
         if shuffle:
             random.shuffle(data)
-        assert isinstance(data, List) or isinstance(data, np.ndarray), "Expected data type List or array, got object of type {}".format(type(data))
+        assert isinstance(data, List) or isinstance(data, np.ndarray), "Expected data type List or Array, got object of type {}".format(type(data))
         datapoints = []
         targets = []
-        for key, value in data:
+        for key, value in tqdm(data):
             pos = value['positive examples']
             try:
                 datapoint_pos = torch.FloatTensor(list(map(lambda x: embeddings.loc[x], pos)))
@@ -43,29 +44,14 @@ class CSDataLoader(BaseConceptSynthesis, Data, metaclass=ABCMeta):
     @load.register
     def _(self, embeddings: tuple, data=None, shuffle=True, **kwargs):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        assert isinstance(data, List) or isinstance(data, np.ndarray), "Expected data type List or Array, got object of type {}".format(type(data))
         if shuffle:
             random.shuffle(data)
-        for i in range(0, len(data)-batch_size+1, batch_size):
+        for i in tqdm(range(0, len(data)-batch_size+1, batch_size)):
             datapoints = []
             targets = []
             data_ = data[i:i+batch_size]
             for key, value in data_:
-                pos = value['positive examples']
-                #random.shuffle(pos)
-                try:
-                    datapoint_pos = torch.cat([e(torch.tensor(list(map(lambda x: self.entity_to_idx[x], pos))).to(device)) for e in embeddings], 1)
-                except KeyError:
-                    continue
-                datapoints.append(datapoint_pos.unsqueeze(0))
-                targets.append(key)
-            targets_numerical = torch.zeros((len(targets), len(self.vocab), self.max_num_atom_repeat))
-            for j in range(len(targets)):
-                targets_numerical[j] = self.get_scores_of_atom_indices(targets[j])
-            yield torch.cat(datapoints), targets_numerical, targets
-        else:
-            datapoints = []
-            targets = []
-            for key, value in data:
                 pos = value['positive examples']
                 #random.shuffle(pos)
                 try:

@@ -171,8 +171,7 @@ class Experiment:
                         cs_loss = self.loss(scores, y_numerical)
                     else:
                         target = list(map(lambda x: self.cs.dataloader.decompose(x), target_sequence))
-                        h, cs_loss = synthesizer(x, target) # h is the hidden state in LSTM
-                        pred_sequence = synthesizer.forward_compute(h)
+                        cs_loss, pred_sequence = synthesizer(x, target) # h is the hidden state in LSTM
                     s_acc, h_acc = self.compute_accuracy(pred_sequence, target_sequence)
                     soft_acc.append(s_acc); hard_acc.append(h_acc)
                     train_losses.append(cs_loss.item())
@@ -220,8 +219,7 @@ class Experiment:
                         cs_loss = self.loss(scores, y_numerical)
                     else:
                         target = list(map(lambda x: self.cs.dataloader.decompose(x), target_sequence))
-                        h, cs_loss = synthesizer(x, target)
-                        pred_sequence = synthesizer.forward_compute(h)
+                        cs_loss, pred_sequence = synthesizer(x, target)
                     s_acc, h_acc = self.compute_accuracy(pred_sequence, target_sequence)
                     soft_acc.append(s_acc); hard_acc.append(h_acc)
                     
@@ -285,8 +283,7 @@ class Experiment:
                     if not synthesizer.name in ['LSTM_As_MT', 'GRU_As_MT']:
                         pred_sequence, _ = synthesizer(x)
                     else:
-                        h, _ = synthesizer(x)
-                        pred_sequence = synthesizer.forward_compute(h)
+                        _, pred_sequence = synthesizer(x)
                     s_acc, h_acc = self.compute_accuracy(pred_sequence, target_sequence)
                     soft_acc.append(s_acc); hard_acc.append(h_acc)
                     
@@ -297,8 +294,7 @@ class Experiment:
                     if not synthesizer.name in ['LSTM_As_MT', 'GRU_As_MT']:
                         pred_sequence, _ = synthesizer(x)
                     else:
-                        h, _ = synthesizer(x)
-                        pred_sequence = synthesizer.forward_compute(h)
+                        _, pred_sequence = synthesizer(x)
                     s_acc, h_acc = self.compute_accuracy(pred_sequence, target_sequence)
                     soft_acc.append(s_acc); hard_acc.append(h_acc)
             te_soft_acc, te_hard_acc = np.mean(soft_acc), np.mean(hard_acc)
@@ -401,8 +397,7 @@ class Experiment:
                             cs_loss = self.loss(scores, y_numerical)
                         else:
                             target = list(map(lambda x: self.cs.dataloader.decompose(x), target_sequence))
-                            h, cs_loss = synthesizer(x, target)
-                            pred_sequence = synthesizer.forward_compute(h)
+                            cs_loss, pred_sequence = synthesizer(x, target)
                         s_acc, h_acc = self.compute_accuracy(pred_sequence, target_sequence)
                         soft_acc.append(s_acc); hard_acc.append(h_acc)
                         train_losses.append(cs_loss.item())
@@ -425,8 +420,7 @@ class Experiment:
                             val_loss = self.loss(scores, y_numerical)
                         else:
                             target = list(map(lambda x: self.cs.dataloader.decompose(x), target_sequence))
-                            h, val_loss = synthesizer(x, target)
-                            pred_sequence = synthesizer.forward_compute(h)
+                            val_loss, pred_sequence = synthesizer(x, target)
                         s_acc, h_acc = self.compute_accuracy(pred_sequence, target_sequence)
                         soft_acc.append(s_acc); hard_acc.append(h_acc)
                         val_losses.append(val_loss.item())
@@ -476,8 +470,7 @@ class Experiment:
                             cs_loss = self.loss(scores, y_numerical)
                         else:
                             target = list(map(lambda x: self.cs.dataloader.decompose(x), target_sequence))
-                            h, cs_loss = synthesizer(x, target)
-                            pred_sequence = synthesizer.forward_compute(h)
+                            cs_loss, pred_sequence = synthesizer(x, target)
                         s_acc, h_acc = self.compute_accuracy(pred_sequence, target_sequence)
                         soft_acc.append(s_acc); hard_acc.append(h_acc)
                         if include_embedding_loss:
@@ -517,8 +510,7 @@ class Experiment:
                             val_loss = self.loss(scores, y_numerical)
                         else:
                             target = list(map(lambda x: self.cs.dataloader.decompose(x), target_sequence))
-                            h, val_loss = synthesizer(x, target)
-                            pred_sequence = synthesizer.forward_compute(h)
+                            val_loss, pred_sequence = synthesizer(x, target)
                         s_acc, h_acc = self.compute_accuracy(pred_sequence, target_sequence)
                         soft_acc.append(s_acc); hard_acc.append(h_acc)
                         val_losses.append(val_loss.item())
@@ -631,10 +623,9 @@ class Experiment:
     def train_all_nets(self, List_nets, data_train, data_test, epochs=200, cs_batch_size=64, tc_batch_size=512, kf_n_splits=10, cross_validate=False, test=False, save_model = False, include_embedding_loss=False, optimizer = 'Adam', tc_label_smoothing=0.9, record_runtime=False, final=False):
         if self.cs.embedding_model is None:
             embeddings = self.cs.get_embedding(embedding_model=None)
-            print("Loading train, validate, and test data\n")
+            print("\nLoading training, validation, and test data...\n")
             data_train = self.cs.dataloader.load(embeddings, data=data_train, shuffle=True)
             data_test = self.cs.dataloader.load(embeddings, data=data_test, shuffle=False)
-            print("Done loading train, validate, and test data\n")
         Training_data = dict()
         Validation_data = dict()
         Markers = ['--', ':', '-', '.']
