@@ -180,7 +180,7 @@ class ConceptLearner_LSTM_As_MT(nn.Module):
         target = np.array([[start]+tg+[end]+[pad]*(max_len-len(tg)) for tg in target], dtype=object)
         for i in range(target.shape[1]-1):
             tg_ = target[:,:i+1]
-            inp = pd.DataFrame(tg_).applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().numpy())
+            inp = pd.DataFrame(tg_).applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().cpu().numpy())
             inp = torch.from_numpy(np.concatenate(inp.values.tolist()))
             inp = inp.reshape(hidden[0].shape[1], tg_.shape[1], -1).requires_grad_()
             label = list(map(self.token_to_idx.get, target[:, i+1]))
@@ -210,7 +210,7 @@ class ConceptLearner_LSTM_As_MT(nn.Module):
             if i == 0:
                 preds = np.array([[start]*hidden[0].shape[1]]).reshape(-1,1)
                 embs = pd.DataFrame(preds)
-                embs = embs.applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().numpy())
+                embs = embs.applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().cpu().numpy())
                 embs = torch.from_numpy(np.concatenate(embs.values.tolist()))
                 embs = embs.reshape(hidden[0].shape[1], preds.shape[1], -1).requires_grad_()
                 out, hidden = self.decoder(embs, hidden)
@@ -220,7 +220,7 @@ class ConceptLearner_LSTM_As_MT(nn.Module):
                 preds = np.concatenate([preds, sampled.reshape(-1,1)], axis=1)
             else:
                 embs = pd.DataFrame(preds)
-                embs = embs.applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().numpy())
+                embs = embs.applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().cpu().numpy())
                 embs = torch.from_numpy(np.concatenate(embs.values.tolist()))
                 embs = embs.reshape(hidden[0].shape[1], preds.shape[1], -1).requires_grad_()
                 out, hidden = self.decoder(embs, hidden)
@@ -263,7 +263,7 @@ class ConceptLearner_GRU_As_MT(nn.Module):
         target = np.array([[start]+tg+[end]+[pad]*(max_len-len(tg)) for tg in target], dtype=object)
         for i in range(target.shape[1]-1):
             tg_ = target[:,:i+1]
-            inp = pd.DataFrame(tg_).applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().numpy())
+            inp = pd.DataFrame(tg_).applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().cpu().numpy())
             inp = torch.from_numpy(np.concatenate(inp.values.tolist()))
             inp = inp.reshape(hidden.shape[1], tg_.shape[1], -1).requires_grad_()
             label = list(map(self.token_to_idx.get, target[:, i+1]))
@@ -293,7 +293,7 @@ class ConceptLearner_GRU_As_MT(nn.Module):
             if i == 0:
                 preds = np.array([[start]*hidden.shape[1]]).reshape(-1,1)
                 embs = pd.DataFrame(preds)
-                embs = embs.applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().numpy())
+                embs = embs.applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().cpu().numpy())
                 embs = torch.from_numpy(np.concatenate(embs.values.tolist()))
                 embs = embs.reshape(hidden.shape[1], preds.shape[1], -1).requires_grad_()
                 out, hidden = self.decoder(embs, hidden)
@@ -303,7 +303,7 @@ class ConceptLearner_GRU_As_MT(nn.Module):
                 preds = np.concatenate([preds, sampled.reshape(-1,1)], axis=1)
             else:
                 embs = pd.DataFrame(preds)
-                embs = embs.applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().numpy())
+                embs = embs.applymap(lambda x: self.embedding(torch.tensor(self.token_to_idx[x]).to(self.device)).detach().cpu().numpy())
                 embs = torch.from_numpy(np.concatenate(embs.values.tolist()))
                 embs = embs.reshape(hidden.shape[1], preds.shape[1], -1).requires_grad_()
                 out, hidden = self.decoder(embs, hidden)
