@@ -70,7 +70,7 @@ from transformers import DataCollatorForSeq2Seq, Seq2SeqTrainingArguments, Seq2S
 data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
 
 training_args = Seq2SeqTrainingArguments(
-    output_dir="./results",
+    output_dir=f"./results_{args.kb}_{args.model.replace("-", "_").split("/")[-1]}",
     evaluation_strategy="steps",
     learning_rate=2e-5,
     per_device_train_batch_size=args.batch_size,
@@ -78,7 +78,7 @@ training_args = Seq2SeqTrainingArguments(
     weight_decay=0.01,
     save_total_limit=3,
     num_train_epochs=args.epochs,
-    fp16=False,
+    fp16=True,
     load_best_model_at_end=True,
 )
 
