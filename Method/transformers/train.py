@@ -42,7 +42,7 @@ data = data.train_test_split(test_size=0.2, seed=42)
 
 from transformers import AutoTokenizer
 
-tokenizer = AutoTokenizer.from_pretrained(args.model)
+tokenizer = AutoTokenizer.from_pretrained(args.model, model_max_length=1024)
 tokenizer.add_tokens(['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥'])
 
 source_lang = "lang1"
