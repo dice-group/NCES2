@@ -43,6 +43,7 @@ data = data.train_test_split(test_size=0.2)
 from transformers import AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained(args.model)
+tokenizer.add_tokens(['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥'])
 
 source_lang = "lang1"
 target_lang = "lang2"
@@ -65,6 +66,7 @@ tokenized_data = data.map(preprocess_function, batched=True)
 from transformers import AutoModelForSeq2SeqLM
 
 model = AutoModelForSeq2SeqLM.from_pretrained(args.model)
+model.resize_token_embeddings(len(tokenizer))
 
 from transformers import DataCollatorForSeq2Seq, Seq2SeqTrainingArguments, Seq2SeqTrainer
 
