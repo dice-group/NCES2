@@ -3,6 +3,7 @@ from tqdm import tqdm
 import os
 from datasets import Dataset
 import argparse
+import shutil
 
 def get_data(data_path):
     import json
@@ -35,7 +36,7 @@ parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
 parser.add_argument("--lr", type=float, default=3.5e-5, help="Learning rate")
 args = parser.parse_args()
 
-data = get_data(f"../Datasets/{args.kb}/Train_data/")
+data = get_data(f"../Datasets/{args.kb}/Train_data")
 
 data = data.train_test_split(test_size=0.2)
 
@@ -93,3 +94,5 @@ trainer = Seq2SeqTrainer(
 )
 
 trainer.train()
+shutil.rmtree(output_dir)
+trainer.save_model(f"{output_dir}/model")
