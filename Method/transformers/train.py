@@ -13,6 +13,7 @@ from transformers import DataCollatorForSeq2Seq, Seq2SeqTrainingArguments, Seq2S
 from helper_functions import get_data
 sys.path.append(os.path.dirname(os.path.realpath(__file__)).split('transformers')[0])
 from ontolearn import KnowledgeBase
+from owlapy.render import DLSyntaxObjectRenderer
 
 
 parser = argparse.ArgumentParser()
@@ -32,8 +33,14 @@ kb_path = f'../Datasets/{args.kb}/{args.kb}.owl'
 data = data.train_test_split(test_size=0.2, seed=42)
 
 kb = KnowledgeBase(path=kb_path)
+dl_syntax_renderer = DLSyntaxObjectRenderer()
+atomic_concepts = list(kb.ontology().classes_in_signature())
+atomic_concepts = [dl_syntax_renderer.render(a) for a in atomic_concepts]
+properties = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()]
+
 Vocab = list(map(lambda x: x.get_iri().as_str().split("/")[-1].split('#')[-1], kb.individuals())) + \
-['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', ')', '(', '.', 'StartPositive', 'EndPositive', 'StartNegative', 'EndNegative']
+['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', ')', '(', '.', 'StartPositive', 'EndPositive', 'StartNegative', 'EndNegative']\
++ atomic_concepts + properties
 
 if not os.path.exists(args.model_path_or_name):
     tokenizer = Tokenizer(BPE(unk_token='[UNK]'))
