@@ -66,6 +66,7 @@ class SyntaxChecker:
                 expression = expression.replace('. '+char, char)
         expression = expression.replace('⊔⊓', '⊔'); expression = expression.replace('⊓⊔', '⊓')
         expression = expression.replace('⊔ ⊓', '⊔'); expression = expression.replace('⊓ ⊔', '⊓')
+        expression = expression.replace('⊔ ⊔', '⊔'); expression = expression.replace('⊓ ⊓', '⊓')
         expression = expression.replace('∃∀', '∃'); expression = expression.replace('∀∃', '∀')
         expression = expression.replace('∃ ∀', '∃'); expression = expression.replace('∀ ∃', '∀')
         dec_expression = self.split2(expression)
