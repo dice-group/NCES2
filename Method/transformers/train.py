@@ -30,7 +30,7 @@ args = parser.parse_args()
 
 data = get_data(f"../Datasets/{args.kb}/Train_data")
 kb_path = f'../Datasets/{args.kb}/{args.kb}.owl'
-data = data.train_test_split(test_size=0.2, seed=42)
+#data = data.train_test_split(test_size=0.2, seed=42)
 
 kb = KnowledgeBase(path=kb_path)
 dl_syntax_renderer = DLSyntaxObjectRenderer()
@@ -86,7 +86,7 @@ output_dir = "./results_"+args.kb + "_" + args.model_name.replace("-", "_").spli
 training_args = Seq2SeqTrainingArguments(
     output_dir=output_dir,
     evaluation_strategy="steps",
-    learning_rate=2e-5,
+    learning_rate=3e-5,
     per_device_train_batch_size=args.batch_size,
     per_device_eval_batch_size=args.batch_size,
     weight_decay=0.01,
@@ -99,8 +99,8 @@ training_args = Seq2SeqTrainingArguments(
 trainer = Seq2SeqTrainer(
     model=model,
     args=training_args,
-    train_dataset=tokenized_data["train"],
-    eval_dataset=tokenized_data["test"],
+    train_dataset=tokenized_data,
+    #eval_dataset=tokenized_data["test"],
     tokenizer=tokenizer,
     data_collator=data_collator,
 )

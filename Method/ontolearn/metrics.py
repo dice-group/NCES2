@@ -90,7 +90,7 @@ class Accuracy(AbstractScorer):
 
     1) R(.) is the retrieval function, A is the class to describe and C in CELOE.
 
-    2) E^+ and E^- are the positive and negative examples probided. E = E^+ OR E^- .
+    2) E^+ and E^- are the positive and negative examples provided. E = E^+ OR E^- .
     """
     __slots__ = ()
 

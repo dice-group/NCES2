@@ -8,7 +8,7 @@ class F1:
     @staticmethod
     def score(pos_examples:set = {}, instances:set = {}):
         if len(instances) == 0:
-            0.
+            return 0.
 
         tp = len(pos_examples.intersection(instances))
         # tn = len(pos_examples.difference(instances))
@@ -52,17 +52,13 @@ class Accuracy:
     name: Final = 'Accuracy'
     
     @staticmethod
-    def score(pos_examples:set = {}, instances:set = {}, all_individuals = {}) -> float:
-        """
-        Negative examples are all individuals not present in pos_examples
-        
-        """
+    def score(pos_examples:set = {}, neg_examples = {}, instances:set = {}, all_individuals:set = {}) -> float:
         
         if len(instances) == 0:
             return 0.
 
         tp = len(pos_examples.intersection(instances))
-        tn = len((all_individuals-pos_examples).intersection(all_individuals-instances))
+        tn = len(neg_examples.intersection(all_individuals-instances))
         fp = len(instances.difference(pos_examples))
         fn = len(pos_examples.difference(instances))
 
