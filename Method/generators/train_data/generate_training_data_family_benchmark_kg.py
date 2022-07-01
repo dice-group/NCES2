@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)).split('generators')[
 from data_generator import KBToDataForConceptSynthesis
 from helper_classes.embedding_triples import RDFTriples
 
-kb_path = os.path.dirname(os.path.realpath(__file__)).split('generators')[0]+"Datasets/family-benchmark/family-benchmark_rich_background.owl"
+kb_path = os.path.dirname(os.path.realpath(__file__)).split('generators')[0]+"Datasets/family-benchmark/family-benchmark.owl"
 
 triples = RDFTriples(source_kg_path=kb_path)
 triples.export_triples()

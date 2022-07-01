@@ -17,7 +17,7 @@ conda env create -f environment.yml
 A conda environment (nces) will be created. Next activate the environment:
 ``` conda activate nces```
 
-Download Datasets from [drive](https://drive.google.com/file/d/16tmjo1OZ5MqY_JwXUg5Fj1WxfWtOXACe/view?usp=sharing), extract it into NCES2/Method and rename the folder as Datasets
+Download and extract Datasets by running the following ``` bash download_data ```
 
 To run search based algorithms CELOE, OCEL, ELTL and ECII, install Java 8+ and Maven 3.6.3+
 

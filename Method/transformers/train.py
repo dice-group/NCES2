@@ -25,12 +25,11 @@ parser.add_argument("--epochs", type=int, default=10, help="Number of training e
 parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
 parser.add_argument("--lr", type=float, default=3.5e-5, help="Learning rate")
 parser.add_argument('--model_max_length', type=int, default=1024, help='The maximum sequence length')
-#parser.add_argument("--use_pretrained_tokenizer", type=bool, default=True, help="Whether to use a pretrained tokenizer")
 args = parser.parse_args()
 
 data = get_data(f"../Datasets/{args.kb}/Train_data")
+data_test = get_data(f"../Datasets/{args.kb}/Test_data")
 kb_path = f'../Datasets/{args.kb}/{args.kb}.owl'
-#data = data.train_test_split(test_size=0.2, seed=42)
 
 kb = KnowledgeBase(path=kb_path)
 dl_syntax_renderer = DLSyntaxObjectRenderer()
@@ -57,7 +56,6 @@ else:
 
 
 
-
 #tokenizer.add_tokens(['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥'])
 
 source_lang = "lang1"
@@ -75,6 +73,7 @@ def preprocess_function(examples):
     return model_inputs
 
 tokenized_data = data.map(preprocess_function, batched=True)
+tokenized_data_test = data_test.map(preprocess_function, batched=True)
 
 model = AutoModelForSeq2SeqLM.from_pretrained(args.model_path_or_name)
 model.resize_token_embeddings(len(tokenizer))
@@ -100,7 +99,7 @@ trainer = Seq2SeqTrainer(
     model=model,
     args=training_args,
     train_dataset=tokenized_data,
-    #eval_dataset=tokenized_data["test"],
+    eval_dataset=tokenized_data_test,
     tokenizer=tokenizer,
     data_collator=data_collator,
 )
