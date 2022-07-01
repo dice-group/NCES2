@@ -30,14 +30,32 @@ Clone DL-Foil from [bitbucket](https://bitbucket.org/grizzo001/dl-foil.git) into
 ### NCES (Ours)
 
 
-*Open a terminal and navigate into Method/reproduce_results/* ``` cd NCES2/Method/reproduce_results/```
-- Reproduce training NCES: ``` python train_nces/reproduce_training_concept_synthesizers_[name_of_knowledge_base]_kb.py```
+*Open a terminal and navigate into Method/transformer/* ``` cd NCES2/Method/transformers/```
+- Reproduce training NCES: ``` python train.py ``` with the following options
 
-- Reproduce training NCES on all KBs: ``` sh reproduce_training_nces_on_all_kbs.sh```
+``` 
+--kb KB               Name of the knowledge base
+  --model_path_or_name MODEL_PATH_OR_NAME
+                        Name or path to the transformer model
+  --model_name MODEL_NAME
+                        Name of the transformer model
+  --path_tokenizer PATH_TOKENIZER
+                        Path to the pretrained tokenizer
+  --epochs EPOCHS       Number of training epochs
+  --batch_size BATCH_SIZE
+                        Batch size
+  --lr LR               Learning rate
+  --model_max_length MODEL_MAX_LENGTH
+                        The maximum sequence length
+
+```
 
 - To reproduce evaluation results on concept learning, please open the jupyter notebook file ReproduceNCES.ipynb
 
-*Remark: name_of_knowledge_base is one of carcinogenesis, mutagenesis, family-benchmark, semantic_bible, vicodi*
+*Remark: --kb is one of carcinogenesis, mutagenesis, family-benchmark, semantic_bible, vicodi*
+
+Costum knowledge bases can also be added. To do this, create a directory (knowledge base name) in Datasets, and add its owl format (make sure the owl file has the same name as your folder name). Create data generation file by following examples in
+generators/train_data/. Run the file to generate training and test data. Train the transformer model by running ``` python train.py --kb your_kb_name ```.
 
 ### DL-Learner (Lehmann et al.)
 
