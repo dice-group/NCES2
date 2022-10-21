@@ -1,12 +1,13 @@
 import torch, torch.nn as nn, numpy as np
 import torch.nn.functional as F
 from .modules import *
-import sys, os
+import sys, os, json
 #base_path = os.path.dirname(os.path.realpath(__file__)).split('concept_synthesis')[0]
 #sys.path.append(base_path)
 from ontolearn.knowledge_base import KnowledgeBase
 from owlapy.render import DLSyntaxObjectRenderer
 import pandas as pd
+import re
 
 class ConceptLearner_LSTM(nn.Module):
     def __init__(self, kwargs):
@@ -17,9 +18,16 @@ class ConceptLearner_LSTM(nn.Module):
         renderer = DLSyntaxObjectRenderer()
         atomic_concepts = list(kb.ontology().classes_in_signature())
         atomic_concept_names = [renderer.render(a) for a in atomic_concepts]
-        role_names = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()]
-        vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')']
+        role_names = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()] + \
+                     [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
+        vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
+                                                    '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
+                                                    'double', 'xsd']
+        quantified_restriction_values = [str(i) for i in range(1,12)]
+        data_values = self.get_data_property_values(kwargs.knowledge_base_path)
+        vocab = vocab + data_values + quantified_restriction_values
         vocab = sorted(vocab) + ['PAD']
+        print("Vocabulary size: ", len(vocab))
         self.max_len = kwargs.max_length
         self.inv_vocab = np.array(vocab, dtype='object')
         self.vocab = {vocab[i]:i for i in range(len(vocab))}
@@ -29,6 +37,26 @@ class ConceptLearner_LSTM(nn.Module):
         self.fc1 = nn.Linear(2*kwargs.proj_dim, kwargs.proj_dim)
         self.fc2 = nn.Linear(kwargs.proj_dim, kwargs.proj_dim)
         self.fc3 = nn.Linear(kwargs.proj_dim, len(self.vocab)*kwargs.max_length)
+        
+    def get_data_property_values(self, path):
+        print("\n*** Finding relevant data values ***")
+        with open(path[:path.rfind("/")+1]+"Train_data/Data.json") as file_train:
+            train_data = json.load(file_train)
+        with open(path[:path.rfind("/")+1]+"Test_data/Data.json") as file_test:
+            test_data = json.load(file_test)
+        values = set()
+        for ce in train_data:
+            if '[' in ce:
+                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                    values.add(val.strip(']'))
+        for ce in test_data:
+            if '[' in ce:
+                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                    values.add(val.strip(']'))
+        print("*** Done! ***\n")
+        print("Added values: ", values)
+        return list(values)
+        
         
     def forward(self, x1, x2, target_scores=None):
         seq1, _ = self.lstm(x1)
@@ -54,9 +82,16 @@ class ConceptLearner_GRU(nn.Module):
         renderer = DLSyntaxObjectRenderer()
         atomic_concepts = list(kb.ontology().classes_in_signature())
         atomic_concept_names = [renderer.render(a) for a in atomic_concepts]
-        role_names = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()]
-        vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')']
+        role_names = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()] + \
+                     [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
+        vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
+                                                    '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
+                                                    'double', 'xsd']
+        quantified_restriction_values = [str(i) for i in range(1,12)]
+        data_values = self.get_data_property_values(kwargs.knowledge_base_path)
+        vocab = vocab + data_values + quantified_restriction_values
         vocab = sorted(vocab) + ['PAD']
+        print("Vocabulary size: ", len(vocab))
         self.max_len = kwargs.max_length
         self.inv_vocab = np.array(vocab, dtype='object')
         self.vocab = {vocab[i]:i for i in range(len(vocab))}
@@ -66,6 +101,25 @@ class ConceptLearner_GRU(nn.Module):
         self.fc1 = nn.Linear(2*kwargs.proj_dim, kwargs.proj_dim)
         self.fc2 = nn.Linear(kwargs.proj_dim, kwargs.proj_dim)
         self.fc3 = nn.Linear(kwargs.proj_dim, len(self.vocab)*kwargs.max_length)
+        
+    def get_data_property_values(self, path):
+        print("\n*** Finding relevant data values ***")
+        with open(path[:path.rfind("/")+1]+"Train_data/Data.json") as file_train:
+            train_data = json.load(file_train)
+        with open(path[:path.rfind("/")+1]+"Test_data/Data.json") as file_test:
+            test_data = json.load(file_test)
+        values = set()
+        for ce in train_data:
+            if '[' in ce:
+                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                    values.add(val.strip(']'))
+        for ce in test_data:
+            if '[' in ce:
+                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                    values.add(val.strip(']'))
+        print("*** Done! ***\n")
+        print("Added values: ", values)
+        return list(values)
     
     def forward(self, x1, x2, target_scores=None):
         seq1, _ = self.gru(x1)
@@ -92,9 +146,16 @@ class SetTransformer(nn.Module):
         renderer = DLSyntaxObjectRenderer()
         atomic_concepts = list(kb.ontology().classes_in_signature())
         atomic_concept_names = [renderer.render(a) for a in atomic_concepts]
-        role_names = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()]
-        vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')']
+        role_names = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()] + \
+                     [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
+        vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
+                                                    '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
+                                                    'double', 'xsd']
+        quantified_restriction_values = [str(i) for i in range(1,12)]
+        data_values = self.get_data_property_values(kwargs.knowledge_base_path)
+        vocab = vocab + data_values + quantified_restriction_values
         vocab = sorted(vocab) + ['PAD']
+        print("Vocabulary size: ", len(vocab))
         self.max_len = kwargs.max_length
         self.inv_vocab = np.array(vocab, dtype='object')
         self.vocab = {vocab[i]:i for i in range(len(vocab))}
@@ -105,6 +166,25 @@ class SetTransformer(nn.Module):
         self.dec = nn.Sequential(
                 PMA(kwargs.proj_dim, kwargs.num_heads, kwargs.num_seeds, ln=kwargs.ln),
                 nn.Linear(kwargs.proj_dim, len(self.vocab)*kwargs.max_length))
+        
+    def get_data_property_values(self, path):
+        print("\n*** Finding relevant data values ***")
+        with open(path[:path.rfind("/")+1]+"Train_data/Data.json") as file_train:
+            train_data = json.load(file_train)
+        with open(path[:path.rfind("/")+1]+"Test_data/Data.json") as file_test:
+            test_data = json.load(file_test)
+        values = set()
+        for ce in train_data:
+            if '[' in ce:
+                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                    values.add(val.strip(']'))
+        for ce in test_data:
+            if '[' in ce:
+                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                    values.add(val.strip(']'))
+        print("*** Done! ***\n")
+        print("Values found: ", values)
+        return list(values)
 
     def forward(self, x1, x2):
         x1 = self.enc(x1)
