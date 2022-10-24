@@ -22,7 +22,7 @@ class ConceptLearner_LSTM(nn.Module):
                      [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
         vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
                                                     '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
-                                                    'double', 'xsd']
+                                                    'double', 'integer', 'xsd']
         quantified_restriction_values = [str(i) for i in range(1,12)]
         data_values = self.get_data_property_values(kwargs.knowledge_base_path)
         vocab = vocab + data_values + quantified_restriction_values
@@ -47,11 +47,11 @@ class ConceptLearner_LSTM(nn.Module):
         values = set()
         for ce in train_data:
             if '[' in ce:
-                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
                     values.add(val.strip(']'))
         for ce in test_data:
             if '[' in ce:
-                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
                     values.add(val.strip(']'))
         print("*** Done! ***\n")
         print("Added values: ", values)
@@ -86,7 +86,8 @@ class ConceptLearner_GRU(nn.Module):
                      [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
         vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
                                                     '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
-                                                    'double', 'xsd']
+                                                    'double', 'integer', 'xsd']
+        # 'string', 'boolean', 'float', 'decimal', 'dateTime', 'anyURI'
         quantified_restriction_values = [str(i) for i in range(1,12)]
         data_values = self.get_data_property_values(kwargs.knowledge_base_path)
         vocab = vocab + data_values + quantified_restriction_values
@@ -111,11 +112,11 @@ class ConceptLearner_GRU(nn.Module):
         values = set()
         for ce in train_data:
             if '[' in ce:
-                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
                     values.add(val.strip(']'))
         for ce in test_data:
             if '[' in ce:
-                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
                     values.add(val.strip(']'))
         print("*** Done! ***\n")
         print("Added values: ", values)
@@ -150,7 +151,7 @@ class SetTransformer(nn.Module):
                      [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
         vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
                                                     '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
-                                                    'double', 'xsd']
+                                                    'double', 'integer', 'xsd']
         quantified_restriction_values = [str(i) for i in range(1,12)]
         data_values = self.get_data_property_values(kwargs.knowledge_base_path)
         vocab = vocab + data_values + quantified_restriction_values
@@ -176,14 +177,14 @@ class SetTransformer(nn.Module):
         values = set()
         for ce in train_data:
             if '[' in ce:
-                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
                     values.add(val.strip(']'))
         for ce in test_data:
             if '[' in ce:
-                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
                     values.add(val.strip(']'))
         print("*** Done! ***\n")
-        print("Values found: ", values)
+        print("Added values: ", values)
         return list(values)
 
     def forward(self, x1, x2):

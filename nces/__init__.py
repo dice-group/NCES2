@@ -1,11 +1,11 @@
 import os, torch, sys
 sys.path.append(os.path.dirname(os.path.realpath(__file__)).split('base')[0])
-import matplotlib.pyplot as plt
 from ontolearn.knowledge_base import KnowledgeBase
 from typing import Final
 from owlapy.render import DLSyntaxObjectRenderer
 import json
 import re
+import copy
 
 class BaseConceptSynthesis:
     """Supervised Machine Learning approach for learning class expressions in ALC from examples"""
@@ -20,7 +20,8 @@ class BaseConceptSynthesis:
         role_names = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()] + \
                      [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
         vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
-                                                    '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']', 'double', 'xsd']
+                                                    '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
+                                                    'double', 'integer', 'xsd']
         quantified_restriction_values = [str(i) for i in range(1,12)]
         data_values = self.get_data_property_values(kwargs.knowledge_base_path)
         vocab = vocab + data_values + quantified_restriction_values
@@ -38,11 +39,11 @@ class BaseConceptSynthesis:
         values = set()
         for ce in train_data:
             if '[' in ce:
-                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
                     values.add(val.strip(']'))
         for ce in test_data:
             if '[' in ce:
-                for val in re.findall(r"\[*-?\d\.\d+]", ce):
+                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
                     values.add(val.strip(']'))
         return list(values)
         
@@ -82,6 +83,11 @@ class BaseConceptSynthesis:
     
     
     def get_labels(self, target):
+        init_tg = copy.deepcopy(target)
         target = self.decompose(target)
+        #try:
         labels = [self.vocab[atm] for atm in target]
+        #except:
+        #    print(init_tg)
+        #    print(target)
         return labels, len(target)

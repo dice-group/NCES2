@@ -52,7 +52,7 @@ parser.add_argument('--decay_rate', type=float, default=0.0, help='Decay rate fo
 parser.add_argument('--grad_clip_value', type=float, default=5.0, help='Gradient clip value')
 parser.add_argument('--opt', type=str, default='Adam', help='Name of the optimizer to use')
 parser.add_argument('--rnn_n_layers', type=int, default=2, help='Number of recurrent network layers')
-parser.add_argument('--max_length', type=int, default=80, help='Maximum length of class expressions')
+parser.add_argument('--max_length', type=int, default=48, help='Maximum length of class expressions')
 parser.add_argument('--drop_prob', type=float, default=0.1, help='Dropout rate in neural networks')
 parser.add_argument('--epochs', type=int, default=500, help='Number of training epochs')
 parser.add_argument('--batch_size', type=int, default=256, help='Training batch size')
