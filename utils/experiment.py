@@ -124,8 +124,14 @@ class Experiment:
         try:
             pos_emb_list = pad_sequence(pos_emb_list, batch_first=True, padding_value=0)
         except:
+            temp_pos = []
             for t in pos_emb_list:
-                print(t.shape)
+                if t.ndim != 2:
+                    temp_pos.append(t.reshape(1, -1))
+                else:
+                    temp_pos.append(t)
+            pos_emb_list = pad_sequence(temp_pos, batch_first=True, padding_value=0)
+            
         neg_emb_list = pad_sequence(neg_emb_list, batch_first=True, padding_value=0)
         target_labels = pad_sequence(target_labels, batch_first=True, padding_value=-100)
         return pos_emb_list, neg_emb_list, target_labels
