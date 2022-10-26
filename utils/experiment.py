@@ -166,9 +166,11 @@ class Experiment:
         
         ## Get combined model size
         size1, size2 = self.show_num_learnable_params(synthesizer, embedding_model)
-        desc = kb_emb_model+'_'+synthesizer.name
+        desc1 = kb_emb_model+'_'+synthesizer.name
+        desc2 = synthesizer.name+'_'+ kb_emb_model+'_'+'Emb'
         if final:
-            desc = desc+'_final'
+            desc1 = desc1+'_final'
+            desc2 = desc2+'_final'
         if train_on_gpu:
             synthesizer.cuda()
             embedding_model.cuda()
@@ -244,7 +246,7 @@ class Experiment:
                            "Number of Epochs": epochs, "Runtime (s)": duration}
             if not os.path.exists(base_path+f"datasets/{self.kb}/Runtime/"):
                 os.mkdir(base_path+f"datasets/{self.kb}/Runtime")
-            with open(base_path+f"datasets/{self.kb}/Runtime/"+"Runtime_"+desc+".json", "w") as file:
+            with open(base_path+f"datasets/{self.kb}/Runtime/"+"Runtime_"+desc1+".json", "w") as file:
                 json.dump(runtime_info, file, indent=3)
                 
         results_dict = dict()
@@ -275,13 +277,16 @@ class Experiment:
         results_dict.update({"Train Max Soft Acc": max(Train_acc['soft']), "Train Max Hard Acc": max(Train_acc['hard']), "Train Min Loss": min(Train_loss)})
         if not os.path.exists(base_path+f"datasets/{self.kb}/Results/"):
             os.mkdir(base_path+f"datasets/{self.kb}/Results/")
-        with open(base_path+f"datasets/{self.kb}/Results/"+"Train_Results_"+desc+".json", "w") as file:
+        with open(base_path+f"datasets/{self.kb}/Results/"+"Train_Results_"+desc1+".json", "w") as file:
                 json.dump(results_dict, file, indent=3)
+        self.kb_embedding_data.entity2idx.to_csv(base_path+f"datasets/{self.kb}/Model_weights/"+desc2+"_entity_idx.csv")
+        self.kb_embedding_data.relation2idx.to_csv(base_path+f"datasets/{self.kb}/Model_weights/"+desc2+"_relation_idx.csv")
         if save_model:
             if not os.path.exists(base_path+f"datasets/{self.kb}/Model_weights/"):
                 os.mkdir(base_path+f"datasets/{self.kb}/Model_weights/")
-            torch.save(synthesizer, base_path+f"datasets/{self.kb}/Model_weights/"+desc+".pt")
-            print("{} saved".format(synthesizer.name))
+            torch.save(synthesizer, base_path+f"datasets/{self.kb}/Model_weights/"+desc1+".pt")
+            torch.save(embedding_model, base_path+f"datasets/{self.kb}/Model_weights/"+desc2+".pt")
+            print("{} and {} saved".format(synthesizer.name, embedding_model.name))
             print()
         plot_data = (np.array(Train_acc['soft']), np.array(Train_acc['hard']), Train_loss)
         return plot_data

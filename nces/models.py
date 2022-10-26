@@ -67,8 +67,8 @@ class ConceptLearner_LSTM(nn.Module):
     def forward(self, x1, x2):
         seq1, _ = self.lstm(x1)
         seq2, _ = self.lstm(x2)
-        out1 = seq1.sum(1).view(-1, self.self.proj_dim)
-        out2 = seq2.sum(1).view(-1, self.self.proj_dim)
+        out1 = seq1.sum(1).view(-1, self.proj_dim)
+        out2 = seq2.sum(1).view(-1, self.proj_dim)
         x = torch.cat([out1,out2], 1)
         x = F.gelu(self.fc1(x))
         x = x + F.relu(self.fc2(x))
@@ -137,8 +137,8 @@ class ConceptLearner_GRU(nn.Module):
     def forward(self, x1, x2):
         seq1, _ = self.gru(x1)
         seq2, _ = self.gru(x2)
-        out1 = seq1.sum(1).view(-1, self.self.proj_dim)
-        out2 = seq2.sum(1).view(-1, self.self.proj_dim)
+        out1 = seq1.sum(1).view(-1, self.proj_dim)
+        out2 = seq2.sum(1).view(-1, self.proj_dim)
         x = torch.cat([out1,out2], 1)
         x = F.gelu(self.fc1(x))
         x = x + F.relu(self.fc2(x))
