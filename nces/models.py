@@ -14,8 +14,10 @@ class ConceptLearner_LSTM(nn.Module):
         super().__init__()
         self.kwargs = kwargs
         self.name = 'LSTM'
+        
         kb = KnowledgeBase(path=kwargs.knowledge_base_path)
         renderer = DLSyntaxObjectRenderer()
+        individuals = [ind.get_iri().as_str().split("/")[-1] for ind in kb.individuals()]
         atomic_concepts = list(kb.ontology().classes_in_signature())
         atomic_concept_names = [renderer.render(a) for a in atomic_concepts]
         role_names = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()] + \
@@ -28,15 +30,19 @@ class ConceptLearner_LSTM(nn.Module):
         vocab = vocab + data_values + quantified_restriction_values
         vocab = sorted(vocab) + ['PAD']
         print("Vocabulary size: ", len(vocab))
+        
+        self.input_size = kwargs.input_size
         self.max_len = kwargs.max_length
+        self.proj_dim = kwargs.proj_dim
         self.inv_vocab = np.array(vocab, dtype='object')
         self.vocab = {vocab[i]:i for i in range(len(vocab))}
         self.loss = nn.CrossEntropyLoss()
-        self.lstm = nn.LSTM(kwargs.input_size, kwargs.proj_dim, kwargs.rnn_n_layers, dropout=kwargs.drop_prob, batch_first=True)
-        self.bn = nn.BatchNorm1d(kwargs.proj_dim)
-        self.fc1 = nn.Linear(2*kwargs.proj_dim, kwargs.proj_dim)
-        self.fc2 = nn.Linear(kwargs.proj_dim, kwargs.proj_dim)
-        self.fc3 = nn.Linear(kwargs.proj_dim, len(self.vocab)*kwargs.max_length)
+        
+        self.lstm = nn.LSTM(self.input_size, self.proj_dim, kwargs.rnn_n_layers, dropout=kwargs.drop_prob, batch_first=True)
+        self.bn = nn.BatchNorm1d(self.proj_dim)
+        self.fc1 = nn.Linear(2*self.proj_dim, self.proj_dim)
+        self.fc2 = nn.Linear(self.proj_dim, self.proj_dim)
+        self.fc3 = nn.Linear(self.proj_dim, len(self.vocab)*self.max_len)
         
     def get_data_property_values(self, path):
         print("\n*** Finding relevant data values ***")
@@ -58,11 +64,11 @@ class ConceptLearner_LSTM(nn.Module):
         return list(values)
         
         
-    def forward(self, x1, x2, target_scores=None):
+    def forward(self, x1, x2):
         seq1, _ = self.lstm(x1)
         seq2, _ = self.lstm(x2)
-        out1 = seq1.sum(1).view(-1, self.kwargs.proj_dim)
-        out2 = seq2.sum(1).view(-1, self.kwargs.proj_dim)
+        out1 = seq1.sum(1).view(-1, self.self.proj_dim)
+        out2 = seq2.sum(1).view(-1, self.self.proj_dim)
         x = torch.cat([out1,out2], 1)
         x = F.gelu(self.fc1(x))
         x = x + F.relu(self.fc2(x))
@@ -78,8 +84,10 @@ class ConceptLearner_GRU(nn.Module):
         super().__init__()
         self.kwargs = kwargs
         self.name = 'GRU'
+        
         kb = KnowledgeBase(path=kwargs.knowledge_base_path)
         renderer = DLSyntaxObjectRenderer()
+        individuals = [ind.get_iri().as_str().split("/")[-1] for ind in kb.individuals()]
         atomic_concepts = list(kb.ontology().classes_in_signature())
         atomic_concept_names = [renderer.render(a) for a in atomic_concepts]
         role_names = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()] + \
@@ -93,15 +101,19 @@ class ConceptLearner_GRU(nn.Module):
         vocab = vocab + data_values + quantified_restriction_values
         vocab = sorted(vocab) + ['PAD']
         print("Vocabulary size: ", len(vocab))
+        
+        self.input_size = kwargs.input_size
         self.max_len = kwargs.max_length
+        self.proj_dim = kwargs.proj_dim
         self.inv_vocab = np.array(vocab, dtype='object')
         self.vocab = {vocab[i]:i for i in range(len(vocab))}
         self.loss = nn.CrossEntropyLoss()
-        self.gru = nn.GRU(kwargs.input_size, kwargs.proj_dim, kwargs.rnn_n_layers, dropout=kwargs.drop_prob, batch_first=True)
-        self.bn = nn.BatchNorm1d(kwargs.proj_dim)
-        self.fc1 = nn.Linear(2*kwargs.proj_dim, kwargs.proj_dim)
-        self.fc2 = nn.Linear(kwargs.proj_dim, kwargs.proj_dim)
-        self.fc3 = nn.Linear(kwargs.proj_dim, len(self.vocab)*kwargs.max_length)
+        
+        self.gru = nn.GRU(self.input_size, self.proj_dim, kwargs.rnn_n_layers, dropout=kwargs.drop_prob, batch_first=True)
+        self.bn = nn.BatchNorm1d(self.proj_dim)
+        self.fc1 = nn.Linear(2*self.proj_dim, self.proj_dim)
+        self.fc2 = nn.Linear(self.proj_dim, self.proj_dim)
+        self.fc3 = nn.Linear(self.proj_dim, len(self.vocab)*self.max_len)
         
     def get_data_property_values(self, path):
         print("\n*** Finding relevant data values ***")
@@ -122,11 +134,11 @@ class ConceptLearner_GRU(nn.Module):
         print("Added values: ", values)
         return list(values)
     
-    def forward(self, x1, x2, target_scores=None):
+    def forward(self, x1, x2):
         seq1, _ = self.gru(x1)
         seq2, _ = self.gru(x2)
-        out1 = seq1.sum(1).view(-1, self.kwargs.proj_dim)
-        out2 = seq2.sum(1).view(-1, self.kwargs.proj_dim)
+        out1 = seq1.sum(1).view(-1, self.self.proj_dim)
+        out2 = seq2.sum(1).view(-1, self.self.proj_dim)
         x = torch.cat([out1,out2], 1)
         x = F.gelu(self.fc1(x))
         x = x + F.relu(self.fc2(x))
@@ -143,8 +155,10 @@ class SetTransformer(nn.Module):
         super(SetTransformer, self).__init__()
         self.name = 'SetTransformer'
         self.kwargs = kwargs
+        
         kb = KnowledgeBase(path=kwargs.knowledge_base_path)
         renderer = DLSyntaxObjectRenderer()
+        individuals = [ind.get_iri().as_str().split("/")[-1] for ind in kb.individuals()]
         atomic_concepts = list(kb.ontology().classes_in_signature())
         atomic_concept_names = [renderer.render(a) for a in atomic_concepts]
         role_names = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()] + \
@@ -157,16 +171,24 @@ class SetTransformer(nn.Module):
         vocab = vocab + data_values + quantified_restriction_values
         vocab = sorted(vocab) + ['PAD']
         print("Vocabulary size: ", len(vocab))
+        
+        self.input_size = kwargs.input_size
         self.max_len = kwargs.max_length
+        self.proj_dim = kwargs.proj_dim
+        self.ln = kwargs.ln
+        self.num_heads = kwargs.num_heads
+        self.num_inds = kwargs.num_inds
+        self.num_seeds = kwargs.num_seeds
         self.inv_vocab = np.array(vocab, dtype='object')
         self.vocab = {vocab[i]:i for i in range(len(vocab))}
         self.loss = nn.CrossEntropyLoss()
+        
         self.enc = nn.Sequential(
-                ISAB(kwargs.input_size, kwargs.proj_dim, kwargs.num_heads, kwargs.num_inds, ln=kwargs.ln),
-                ISAB(kwargs.proj_dim, kwargs.proj_dim, kwargs.num_heads, kwargs.num_inds, ln=kwargs.ln))
+                ISAB(self.input_size, self.proj_dim, self.num_heads, self.num_inds, ln=self.ln),
+                ISAB(self.proj_dim, self.proj_dim, self.num_heads, self.num_inds, ln=self.ln))
         self.dec = nn.Sequential(
-                PMA(kwargs.proj_dim, kwargs.num_heads, kwargs.num_seeds, ln=kwargs.ln),
-                nn.Linear(kwargs.proj_dim, len(self.vocab)*kwargs.max_length))
+                PMA(self.proj_dim, self.num_heads, self.num_seeds, ln=self.ln),
+                nn.Linear(self.proj_dim, len(self.vocab)*self.max_len))
         
     def get_data_property_values(self, path):
         print("\n*** Finding relevant data values ***")

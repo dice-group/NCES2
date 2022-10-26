@@ -17,16 +17,16 @@ class Complex(torch.nn.Module):
         super(Complex, self).__init__()
         self.name = 'Complex'
         self.param = param
-        self.embedding_dim = self.param['embedding_dim']
-        self.num_entities = self.param['num_entities']
-        self.num_relations = self.param['num_relations']
+        self.embedding_dim = self.param.embedding_dim
+        self.num_entities = self.param.num_entities
+        self.num_relations = self.param.num_relations
 
         self.Er = torch.nn.Embedding(self.num_entities, self.embedding_dim, padding_idx=0)
         self.Rr = torch.nn.Embedding(self.num_relations, self.embedding_dim, padding_idx=0)
         self.Ei = torch.nn.Embedding(self.num_entities, self.embedding_dim, padding_idx=0)
         self.Ri = torch.nn.Embedding(self.num_relations, self.embedding_dim, padding_idx=0)
 
-        self.input_dropout = torch.nn.Dropout(self.param['input_dropout'])
+        self.input_dropout = torch.nn.Dropout(self.param.input_dropout)
         self.bn0 = torch.nn.BatchNorm1d(self.embedding_dim)
         self.bn1 = torch.nn.BatchNorm1d(self.embedding_dim)
         self.loss = torch.nn.BCELoss()
@@ -76,24 +76,24 @@ class ConEx(torch.nn.Module):
         self.name = 'ConEx'
         self.loss = torch.nn.BCELoss()
         self.param = params
-        self.embedding_dim = self.param['embedding_dim']
-        self.num_entities = self.param['num_entities']
-        self.num_relations = self.param['num_relations']
-        self.kernel_size = self.param['kernel_size']
-        self.num_of_output_channels = self.param['num_of_output_channels']
+        self.embedding_dim = self.param.embedding_dim
+        self.num_entities = self.param.num_entities
+        self.num_relations = self.param.num_relations
+        self.kernel_size = self.param.kernel_size
+        self.num_of_output_channels = self.param.num_of_output_channels
 
         # Embeddings.
-        self.emb_ent_real = nn.Embedding(self.param['num_entities'], self.embedding_dim)  # real
-        self.emb_ent_i = nn.Embedding(self.param['num_entities'], self.embedding_dim)  # imaginary i
+        self.emb_ent_real = nn.Embedding(self.param.num_entities, self.embedding_dim)  # real
+        self.emb_ent_i = nn.Embedding(self.param.num_entities, self.embedding_dim)  # imaginary i
 
-        self.emb_rel_real = nn.Embedding(self.param['num_relations'], self.embedding_dim)  # real
-        self.emb_rel_i = nn.Embedding(self.param['num_relations'], self.embedding_dim)  # imaginary i
+        self.emb_rel_real = nn.Embedding(self.param.num_relations, self.embedding_dim)  # real
+        self.emb_rel_i = nn.Embedding(self.param.num_relations, self.embedding_dim)  # imaginary i
 
         # Dropouts
-        self.input_dp_ent_real = torch.nn.Dropout(self.param['input_dropout'])
-        self.input_dp_ent_i = torch.nn.Dropout(self.param['input_dropout'])
-        self.input_dp_rel_real = torch.nn.Dropout(self.param['input_dropout'])
-        self.input_dp_rel_i = torch.nn.Dropout(self.param['input_dropout'])
+        self.input_dp_ent_real = torch.nn.Dropout(self.param.input_dropout)
+        self.input_dp_ent_i = torch.nn.Dropout(self.param.input_dropout)
+        self.input_dp_rel_real = torch.nn.Dropout(self.param.input_dropout)
+        self.input_dp_rel_i = torch.nn.Dropout(self.param.input_dropout)
 
         # Batch Normalization
         self.bn_ent_real = torch.nn.BatchNorm1d(self.embedding_dim)
@@ -104,13 +104,13 @@ class ConEx(torch.nn.Module):
         # Convolution
         self.conv1 = torch.nn.Conv1d(in_channels=1, out_channels=self.num_of_output_channels,
                                      kernel_size=(self.kernel_size, self.kernel_size), stride=1, padding=1, bias=True)
-
-        self.fc_num_input = self.embedding_dim * 4 * self.num_of_output_channels  # 4 because of 4 real values in 2 complex numbers
+        # Formula for convolution output shape: (input_dim + 2* padding - kernel_size) / (stride) + 1
+        self.fc_num_input = ((self.embedding_dim+2-self.kernel_size)+1) * (4+2-4+1) * self.num_of_output_channels 
         self.fc = torch.nn.Linear(self.fc_num_input, self.embedding_dim * 2)
 
         self.bn_conv1 = torch.nn.BatchNorm2d(self.num_of_output_channels)
         self.bn_conv2 = torch.nn.BatchNorm1d(self.embedding_dim * 2)
-        self.feature_map_dropout = torch.nn.Dropout2d(self.param['feature_map_dropout'])
+        self.feature_map_dropout = torch.nn.Dropout2d(self.param.feature_map_dropout)
 
     def residual_convolution(self, C_1, C_2):
         emb_ent_real, emb_ent_imag_i = C_1
@@ -120,7 +120,7 @@ class ConEx(torch.nn.Module):
                        emb_ent_imag_i.view(-1, 1, 1, self.embedding_dim),
                        emb_rel_real.view(-1, 1, 1, self.embedding_dim),
                        emb_rel_imag_i.view(-1, 1, 1, self.embedding_dim)], 2)
-
+        
         x = self.conv1(x)
         x = F.relu(self.bn_conv1(x))
         x = self.feature_map_dropout(x)

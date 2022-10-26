@@ -14,12 +14,7 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-# Seeds for random number generators.
-# Disable them if you wish to observe the impact of random init. of params.
-seed = 1
-np.random.seed(seed)
-torch.manual_seed(seed)
-# noinspection PyTypeChecker
+
 class DatasetTriple(torch.utils.data.Dataset):
     def __init__(self, data):
         data = torch.Tensor(data).long()

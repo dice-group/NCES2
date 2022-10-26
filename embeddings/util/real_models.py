@@ -15,18 +15,18 @@ class Distmult(torch.nn.Module):
         super(Distmult, self).__init__()
         self.name = 'Distmult'
         self.param = param
-        self.embedding_dim = self.param['embedding_dim']
-        self.num_entities = self.param['num_entities']
-        self.num_relations = self.param['num_relations']
+        self.embedding_dim = self.param.embedding_dim
+        self.num_entities = self.param.num_entities
+        self.num_relations = self.param.num_relations
         self.loss = torch.nn.BCELoss()
         # Real embeddings of entities
         self.emb_ent_real = nn.Embedding(self.num_entities, self.embedding_dim)  # real
         # Real embeddings of relations.
         self.emb_rel_real = nn.Embedding(self.num_relations, self.embedding_dim)  # real
         # Dropouts for quaternion embeddings of ALL entities.
-        self.input_dp_ent_real = torch.nn.Dropout(self.param['input_dropout'])
+        self.input_dp_ent_real = torch.nn.Dropout(self.param.input_dropout)
         # Dropouts for quaternion embeddings of relations.
-        self.input_dp_rel_real = torch.nn.Dropout(self.param['input_dropout'])
+        self.input_dp_rel_real = torch.nn.Dropout(self.param.input_dropout)
         # Batch normalization for quaternion embeddings of ALL entities.
         self.bn_ent_real = torch.nn.BatchNorm1d(self.embedding_dim)
         # Batch normalization for quaternion embeddings of relations.
@@ -78,16 +78,16 @@ class TransE(torch.nn.Module):
         super(TransE, self).__init__()
         self.name = 'TransE'
         self.param = param
-        self.embedding_dim = self.param['embedding_dim']
-        self.num_entities = self.param['num_entities']
-        self.num_relations = self.param['num_relations']
+        self.embedding_dim = self.param.embedding_dim
+        self.num_entities = self.param.num_entities
+        self.num_relations = self.param.num_relations
         # Real embeddings of entities
         self.emb_ent_real = nn.Embedding(self.num_entities, self.embedding_dim)  # real
         # Real embeddings of relations.
         self.emb_rel_real = nn.Embedding(self.num_relations, self.embedding_dim)  # real
 
         self.gamma = nn.Parameter(
-            torch.Tensor([self.param['gamma']]),
+            torch.Tensor([self.param.gamma]),
             requires_grad=False
         )
 
@@ -126,9 +126,9 @@ class Tucker(torch.nn.Module):
         super(Tucker, self).__init__()
         self.name = 'Tucker'
         self.param = param
-        self.embedding_dim = self.param['embedding_dim']
-        self.num_entities = self.param['num_entities']
-        self.num_relations = self.param['num_relations']
+        self.embedding_dim = self.param.embedding_dim
+        self.num_entities = self.param.num_entities
+        self.num_relations = self.param.num_relations
 
         self.E = torch.nn.Embedding(self.num_entities, self.embedding_dim)
         self.R = torch.nn.Embedding(self.num_relations, self.embedding_dim)
@@ -136,9 +136,9 @@ class Tucker(torch.nn.Module):
             torch.tensor(np.random.uniform(-1, 1, (self.embedding_dim, self.embedding_dim, self.embedding_dim)),
                          dtype=torch.float, requires_grad=True))
 
-        self.input_dropout = torch.nn.Dropout(self.param['input_dropout'])
-        self.hidden_dropout1 = torch.nn.Dropout(self.param["hidden_dropout"])
-        self.hidden_dropout2 = torch.nn.Dropout(self.param["hidden_dropout"])
+        self.input_dropout = torch.nn.Dropout(self.param.input_dropout)
+        self.hidden_dropout1 = torch.nn.Dropout(self.param.hidden_dropout)
+        self.hidden_dropout2 = torch.nn.Dropout(self.param.hidden_dropout)
         self.bn0 = torch.nn.BatchNorm1d(self.embedding_dim)
         self.bn1 = torch.nn.BatchNorm1d(self.embedding_dim)
 

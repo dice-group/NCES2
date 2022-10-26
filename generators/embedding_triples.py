@@ -5,18 +5,18 @@ class RDFTriples:
     """The knowledge graph/base is converted into triples of the form: individual_i ---role_j---> concept_k or individual_i ---role_j---> individual_k
     and stored in a txt file for the computation of embeddings."""
     
-    def __init__(self, source_kg_path):
+    def __init__(self, source_kb_path):
         self.Graph = graph.Graph()
-        self.Graph.parse(source_kg_path)
-        self.source_kg_path = source_kg_path
+        self.Graph.parse(source_kb_path)
+        self.source_kb_path = source_kb_path
               
     def export_triples(self, export_folder_name='Triples'):
-        if not os.path.exists(os.path.join(self.source_kg_path[:self.source_kg_path.rfind("/")], export_folder_name)):
-            os.mkdir(os.path.join(self.source_kg_path[:self.source_kg_path.rfind("/")], export_folder_name))
-        if os.path.isfile(os.path.join(self.source_kg_path[:self.source_kg_path.rfind("/")], export_folder_name, "train.txt")):
+        if not os.path.exists(os.path.join(self.source_kb_path[:self.source_kb_path.rfind("/")], export_folder_name)):
+            os.mkdir(os.path.join(self.source_kb_path[:self.source_kb_path.rfind("/")], export_folder_name))
+        if os.path.isfile(os.path.join(self.source_kb_path[:self.source_kb_path.rfind("/")], export_folder_name, "train.txt")):
             print("\n*** Embedding triples exist ***\n")
             return
-        train_file = open("%s/train.txt" % os.path.join(self.source_kg_path[:self.source_kg_path.rfind("/")], export_folder_name), mode="w")
+        train_file = open("%s/train.txt" % os.path.join(self.source_kb_path[:self.source_kb_path.rfind("/")], export_folder_name), mode="w")
         for s,p,o in self.Graph:
             s = s.expandtabs()[s.expandtabs().rfind("/")+1:]
             p = p.expandtabs()[p.expandtabs().rfind("/")+1:]

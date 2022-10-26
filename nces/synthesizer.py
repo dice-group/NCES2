@@ -4,20 +4,17 @@ import sys, os
 base_path = os.path.dirname(os.path.realpath(__file__)).split('nces')[0]
 sys.path.append(base_path)
 from .models import *
-from owlapy.model import OWLNamedIndividual
-from typing import List, Union
+from embeddings.util.complex_models import *
+from embeddings.util.real_models import *
 import pandas as pd
 
 class ConceptSynthesizer:
     def __init__(self, kwargs):
         self.kwargs = kwargs
         self.learner_name = kwargs.learner_name
+        self.kb_emb_model = kwargs.kb_emb_model
         self.model = self.get_synthesizer()
-        self.embeddings = self.get_embedding()
-        
-    
-    def get_embedding(self):
-        return pd.read_csv(self.kwargs.path_to_csv_embeddings).set_index('Unnamed: 0')
+        self.embedding_model = self.get_embedding_model()
     
     def get_synthesizer(self):
         if self.learner_name == 'SetTransformer':
@@ -31,6 +28,20 @@ class ConceptSynthesizer:
         else:
             print('Wrong concept learner name')
             raise ValueError
+            
+            
+    def get_embedding_model(self):
+        if self.kb_emb_model == 'ConEx':
+            return ConEx(self.kwargs)
+        elif self.kb_emb_model == 'Complex':
+            return Complex(self.kwargs)
+        elif self.kb_emb_model == 'Distmult':
+            return Distmult(self.kwargs)
+        elif self.kb_emb_model == 'Tucker':
+            return Tucker(self.kwargs)
+        else:
+            print('No embedding model given, will require pretrained embeddings in csv format')
+            
             
     def refresh(self):
         self.model = self.get_synthesizer()

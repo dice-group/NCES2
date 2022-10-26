@@ -1,7 +1,4 @@
 import sys, os
-
-#sys.path.append(os.path.dirname(os.path.realpath(__file__)).split('generators')[0])
-
 from concept_description import ConceptDescriptionGenerator
 from ontolearn.knowledge_base import KnowledgeBase
 from ontolearn.refinement_operators import ExpressRefinement, ModifiedCELOERefinement
@@ -107,7 +104,6 @@ class KBToDataForConceptSynthesis:
               
             
 import argparse
-from embedding_triples import RDFTriples
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--kbs', type=str, nargs='+', default=['carcinogenesis'], help='Knowledge base name')
@@ -122,8 +118,6 @@ parser.add_argument('--rho', type=str, default='ExpressRefinement', choices=['Ex
 args = parser.parse_args()
 
 for kb in args.kbs:
-    #triples = RDFTriples(source_kg_path=f'../datasets/{kb}/{kb}.owl')
-    #triples.export_triples()
     with open(f'../datasets/{kb}/data_generation_settings.json', "w") as setting:
         json.dump(vars(args), setting)
     DataGen = KBToDataForConceptSynthesis(path=f'../datasets/{kb}/{kb}.owl', rho_name=args.rho, depth=args.depth, k=args.k, max_child_length=args.max_child_len, refinement_expressivity=args.refinement_expressivity, downsample_refinements=True, num_rand_samples=args.num_rand_samples, min_num_pos_examples=1, max_num_pos_examples=args.max_num_pos_examples)
