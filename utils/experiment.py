@@ -121,7 +121,10 @@ class Experiment:
             pos_emb_list.append(pos_emb)
             neg_emb_list.append(neg_emb)
             target_labels.append(label)
-        pos_emb_list = pad_sequence(pos_emb_list, batch_first=True, padding_value=0)
+        try:
+            pos_emb_list = pad_sequence(pos_emb_list, batch_first=True, padding_value=0)
+        except:
+            print(pos_emb_list)
         neg_emb_list = pad_sequence(neg_emb_list, batch_first=True, padding_value=0)
         target_labels = pad_sequence(target_labels, batch_first=True, padding_value=-100)
         return pos_emb_list, neg_emb_list, target_labels
