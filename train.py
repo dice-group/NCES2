@@ -59,7 +59,7 @@ parser.add_argument('--feature_map_dropout', type=float, default=0.1, help='Feat
 parser.add_argument('--hidden_dropout', type=float, default=0.1, help='Hidden dropout probability during embedding computation')
 parser.add_argument('--kernel_size', type=int, default=4, help='Kernel size in ConEx')
 parser.add_argument('--num_of_output_channels', type=int, default=8, help='Number of output channels in ConEx')
-parser.add_argument('--epochs', type=int, default=500, help='Number of training epochs')
+parser.add_argument('--epochs', type=int, default=400, help='Number of training epochs')
 parser.add_argument('--batch_size', type=int, default=256, help='Training batch size')
 parser.add_argument('--cross_validate', type=str2bool, default=False, help='Whether to use a 10-fold cross-validation setting')
 parser.add_argument('--shuffle_examples', type=str2bool, default=False, help='Whether to shuffle positive and negative examples in the dataloader')
