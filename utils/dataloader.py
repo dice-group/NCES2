@@ -16,8 +16,8 @@ class CSDataLoader(BaseConceptSynthesis, Data, torch.utils.data.Dataset):
         
         
     def load_embeddings(self, embedding_model):
-        self.embeddings, _ = embedding_model.get_embeddings()
-        self.embeddings = self.embeddings.cpu()
+        embeddings, _ = embedding_model.get_embeddings()
+        self.embeddings = embeddings.cpu()
         
 
     def __len__(self):
