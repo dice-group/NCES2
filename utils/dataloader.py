@@ -5,6 +5,7 @@ from nces import BaseConceptSynthesis
 import numpy as np, torch, pandas as pd
 from .data import Data
 import random
+import copy
 
 class CSDataLoader(BaseConceptSynthesis, Data, torch.utils.data.Dataset):
     def __init__(self, data, kwargs):
@@ -15,7 +16,7 @@ class CSDataLoader(BaseConceptSynthesis, Data, torch.utils.data.Dataset):
         
         
     def load_embeddings(self, embedding_model):
-        self.embeddings, _ = embedding_model.get_embeddings()
+        self.embeddings, _ = embedding_model.get_embeddings().cpu()
         
 
     def __len__(self):
