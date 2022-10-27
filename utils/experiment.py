@@ -255,7 +255,7 @@ class Experiment:
                            "Number of Epochs": epochs, "Runtime (s)": duration}
             if not os.path.exists(base_path+f"datasets/{self.kb}/Runtime/"):
                 os.mkdir(base_path+f"datasets/{self.kb}/Runtime")
-            with open(base_path+f"datasets/{self.kb}/Runtime/"+"Runtime_"+desc1+".json", "w") as file:
+            with open(base_path+f"datasets/{self.kb}/Runtime/"+"Runtime_"+desc1+f"_proj_dim{synthesizer.proj_dim}d_emb_dim{synthesizer.embedding_dim}d.json", "w") as file:
                 json.dump(runtime_info, file, indent=3)
                 
         results_dict = dict()
@@ -283,18 +283,21 @@ class Experiment:
             results_dict.update({"Synthesizer size": size1, "Embedding model size": size2, "Test soft acc":te_soft_acc, "Test hard acc": te_hard_acc})
         print("Train soft accuracy: {} ... Train hard accuracy: {}".format(max(Train_acc['soft']), max(Train_acc['hard'])))
         print()
-        results_dict.update({"Train Max Soft Acc": max(Train_acc['soft']), "Train Max Hard Acc": max(Train_acc['hard']), "Train Min Loss": min(Train_loss)})
+        results_dict.update({"Train max soft acc": max(Train_acc['soft']), "Train max hard acc": max(Train_acc['hard']), "Train min loss": min(Train_loss)})
+        results_dict.update({'Vocab Size': len(synthesizer.vocab)})
         if not os.path.exists(base_path+f"datasets/{self.kb}/Results/"):
             os.mkdir(base_path+f"datasets/{self.kb}/Results/")
-        with open(base_path+f"datasets/{self.kb}/Results/"+"Train_Results_"+desc1+".json", "w") as file:
+        with open(base_path+f"datasets/{self.kb}/Results/"+"Train_Results_"+desc1+f"_proj_dim{synthesizer.proj_dim}d_emb_dim{synthesizer.embedding_dim}d.json", "w") as file:
                 json.dump(results_dict, file, indent=3)
-        self.kb_embedding_data.entity2idx.to_csv(base_path+f"datasets/{self.kb}/Model_weights/"+desc2+"_entity_idx.csv")
-        self.kb_embedding_data.relation2idx.to_csv(base_path+f"datasets/{self.kb}/Model_weights/"+desc2+"_relation_idx.csv")
+        self.kb_embedding_data.entity2idx.to_csv(base_path+f"datasets/{self.kb}/Model_weights/"+desc2+\
+                                                 f"_proj_dim{synthesizer.proj_dim}d_emb_dim{synthesizer.embedding_dim}d_entity_idx.csv")
+        self.kb_embedding_data.relation2idx.to_csv(base_path+f"datasets/{self.kb}/Model_weights/"+desc2+\
+                                                   f"_proj_dim{synthesizer.proj_dim}d_emb_dim{synthesizer.embedding_dim}d_relation_idx.csv")
         if save_model:
             if not os.path.exists(base_path+f"datasets/{self.kb}/Model_weights/"):
                 os.mkdir(base_path+f"datasets/{self.kb}/Model_weights/")
-            torch.save(synthesizer, base_path+f"datasets/{self.kb}/Model_weights/"+desc1+".pt")
-            torch.save(embedding_model, base_path+f"datasets/{self.kb}/Model_weights/"+desc2+".pt")
+            torch.save(synthesizer, base_path+f"datasets/{self.kb}/Model_weights/"+desc1+f"_proj_dim{synthesizer.proj_dim}d_emb_dim{synthesizer.embedding_dim}d.pt")
+            torch.save(embedding_model, base_path+f"datasets/{self.kb}/Model_weights/"+desc2+f"_proj_dim{synthesizer.proj_dim}d_emb_dim{synthesizer.embedding_dim}d.pt")
             print("{} and {} saved".format(synthesizer.name, embedding_model.name))
             print()
         plot_data = (np.array(Train_acc['soft']), np.array(Train_acc['hard']), Train_loss)
@@ -314,7 +317,7 @@ class Experiment:
             print('Learner: ', self.cs.learner_name)
             self.cs.refresh()
             train_soft_acc, train_hard_acc, train_l = self.train(train_data, test_data, epochs, test, save_model, kb_emb_model, optimizer, record_runtime, final)
-            with open(base_path+f"datasets/{self.kb}/Plot_data/"+desc+"_plot_data.json", "w") as plot_file:
+            with open(base_path+f"datasets/{self.kb}/Plot_data/"+desc+f"_proj_dim{self.cs.model.proj_dim}d_emb_dim{self.cs.model.embedding_dim}d.json", "w") as plot_file:
                 json.dump({"soft acc": list(train_soft_acc), "hard acc": list(train_hard_acc), "loss": list(train_l)}, plot_file, indent=3)
 
             

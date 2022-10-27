@@ -33,16 +33,17 @@ def str2bool(v):
 parser = argparse.ArgumentParser()
 parser.add_argument('--kbs', type=str, nargs='+', default=['carcinogenesis'],
                     help='Knowledge base name. Check the folder datasets to see all available knowledge bases')
-parser.add_argument('--models', type=str, nargs='+', default=['SetTransformer', 'LSTM', 'GRU'], help='Neural models')
+parser.add_argument('--models', type=str, nargs='+', default=['SetTransformer'], help='Neural models')
 parser.add_argument('--kb_emb_model', type=str, default='ConEx', help='Embedding model name')
 parser.add_argument('--learner_name', type=str, default="SetTransformer", choices=['LSTM', 'GRU', 'SetTransformer'], help='Neural model')
 parser.add_argument('--knowledge_base_path', type=str, default="", help='Path to KB owl file')
 parser.add_argument('--path_to_triples', type=str, default="", help='Path to KG (result of the conversion of KB to KG)')
 parser.add_argument('--learning_rate', type=float, default=3e-4, help='Learning rate')
-parser.add_argument('--embedding_dim', type=int, default=20, help='Number of embedding dimensions')
-parser.add_argument('--input_size', type=int, default=20, help='Number of embedding dimensions in the input')
+parser.add_argument('--embedding_dim', type=int, default=40, help='Number of embedding dimensions')
+parser.add_argument('--input_size', type=int, default=40, help='Number of embedding dimensions in the input')
 parser.add_argument('--num_workers', type=int, default=12, help='Number of workers to use to load training data')
 parser.add_argument('--proj_dim', type=int, default=128, help='The projection dimension for examples')
+parser.add_argument('--proj_dims', type=int, nargs='+', default=[64, 128, 256], help='Different projection dimensions to consider')
 parser.add_argument('--num_inds', type=int, default=32, help='Number of induced instances')
 parser.add_argument('--num_heads', type=int, default=4, help='Number of attention heads')
 parser.add_argument('--num_seeds', type=int, default=1, help='Number of seed components in the output')
@@ -75,7 +76,7 @@ else:
     
 print("Setting: ", vars(args))
 
-with open("settings.json", "w") as setting:
+with open(f"settings.json", "w") as setting:
     json.dump(vars(args), setting)
 
 for kb in args.kbs:
@@ -86,18 +87,17 @@ for kb in args.kbs:
     data_test_path = f"datasets/{kb}/Test_data/Data.json"
     with open(data_test_path, "r") as file:
         data_test = json.load(file)
-        
+    data_train, data_test = list(data_train.items()), list(data_test.items())
+    
     args.knowledge_base_path = f"datasets/{kb}/{kb}.owl"
     args.path_to_triples = f"datasets/{kb}/Triples/"
-    experiment = Experiment(args)
-    data_train, data_test = list(data_train.items()), list(data_test.items())
-
-    final = args.final
-    test = args.test
-    cross_validate = args.cross_validate
-    if args.final:
-        data_train = data_train + data_test
-        test = False
-        cross_validate = False
-    experiment.train_all_nets(args.models, data_train, data_test, epochs=args.epochs, test=test, save_model = args.save_model,
-                              kb_emb_model=args.kb_emb_model, optimizer = args.opt, record_runtime=True, final=final)
+    for proj_dim in args.proj_dims:
+        args.proj_dim = proj_dim
+        experiment = Experiment(args)
+        final = args.final
+        test = args.test
+        if args.final:
+            data_train = data_train + data_test
+            test = False
+        experiment.train_all_nets(args.models, data_train, data_test, epochs=args.epochs, test=test, save_model=args.save_model,
+                                  kb_emb_model=args.kb_emb_model, optimizer=args.opt, record_runtime=True, final=final)
