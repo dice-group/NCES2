@@ -132,7 +132,16 @@ class Experiment:
                     temp_pos.append(t)
             pos_emb_list = pad_sequence(temp_pos, batch_first=True, padding_value=0)
             
-        neg_emb_list = pad_sequence(neg_emb_list, batch_first=True, padding_value=0)
+        try:
+            neg_emb_list = pad_sequence(neg_emb_list, batch_first=True, padding_value=0)
+        except:
+            temp_neg = []
+            for t in neg_emb_list:
+                if t.ndim != 2:
+                    temp_neg.append(t.reshape(1, -1))
+                else:
+                    temp_neg.append(t)
+            neg_emb_list = pad_sequence(temp_neg, batch_first=True, padding_value=0)
         target_labels = pad_sequence(target_labels, batch_first=True, padding_value=-100)
         return pos_emb_list, neg_emb_list, target_labels
             
