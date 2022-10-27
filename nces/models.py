@@ -34,6 +34,7 @@ class ConceptLearner_LSTM(nn.Module):
         self.input_size = kwargs.input_size
         self.max_len = kwargs.max_length
         self.proj_dim = kwargs.proj_dim
+        self.embedding_dim = kwargs.embedding_dim
         self.inv_vocab = np.array(vocab, dtype='object')
         self.vocab = {vocab[i]:i for i in range(len(vocab))}
         self.loss = nn.CrossEntropyLoss()
@@ -105,6 +106,7 @@ class ConceptLearner_GRU(nn.Module):
         self.input_size = kwargs.input_size
         self.max_len = kwargs.max_length
         self.proj_dim = kwargs.proj_dim
+        self.embedding_dim = kwargs.embedding_dim
         self.inv_vocab = np.array(vocab, dtype='object')
         self.vocab = {vocab[i]:i for i in range(len(vocab))}
         self.loss = nn.CrossEntropyLoss()
@@ -175,6 +177,7 @@ class SetTransformer(nn.Module):
         self.input_size = kwargs.input_size
         self.max_len = kwargs.max_length
         self.proj_dim = kwargs.proj_dim
+        self.embedding_dim = kwargs.embedding_dim
         self.ln = kwargs.ln
         self.num_heads = kwargs.num_heads
         self.num_inds = kwargs.num_inds
