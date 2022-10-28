@@ -1,0 +1,5 @@
+{
+   "Concept synthesizer": "GRU",
+   "Number of Epochs": 400,
+   "Runtime (s)": 1136.176879644394
+}
