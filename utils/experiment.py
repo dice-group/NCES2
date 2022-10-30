@@ -2,9 +2,8 @@ import numpy as np, copy
 import torch
 from tqdm import tqdm
 from collections import defaultdict
-import sys, os, json
-os.environ["CUDA_VISIBLE_DEVICES"] ="0,1"
 from torch.utils.data import DataLoader
+import sys, os, json
 base_path = os.path.dirname(os.path.realpath(__file__)).split('utils')[0]
 sys.path.append(base_path)
 from nces import BaseConceptSynthesis
@@ -172,7 +171,7 @@ class Experiment:
         triple_data_idxs = self.get_data_idxs(self.kb_embedding_data.data_triples)
         head_to_relation_batch = list(DataLoader(
             HeadAndRelationBatchLoader(er_vocab=self.get_er_vocab(triple_data_idxs), num_e=len(self.kb_embedding_data.entities)),
-            batch_size=3*self.batch_size, num_workers=self.num_workers, shuffle=True))
+            batch_size=2*self.batch_size, num_workers=self.num_workers, shuffle=True))
         
         ## Get combined model size
         size1, size2 = self.show_num_learnable_params(synthesizer, embedding_model)
@@ -182,8 +181,8 @@ class Experiment:
             desc1 = desc1+'_final'
             desc2 = desc2+'_final'
         if train_on_gpu:
-            synthesizer.cuda(torch.device('cuda:0'))
-            embedding_model.cuda(torch.device('cuda:1'))
+            synthesizer.cuda()
+            embedding_model.cuda()
                         
         opt = self.get_optimizer(synthesizer=synthesizer, embedding_model=embedding_model, optimizer=optimizer)
         if self.decay_rate:
@@ -207,9 +206,9 @@ class Experiment:
                 head_batch = head_to_relation_batch[tc_batch_iterator%len(head_to_relation_batch)]
                 e1_idx, r_idx, tc_targets = head_batch
                 if train_on_gpu:
-                    tc_targets = tc_targets.cuda(torch.device('cuda:1'))
-                    r_idx = r_idx.cuda(torch.device('cuda:1'))
-                    e1_idx = e1_idx.cuda(torch.device('cuda:1'))
+                    tc_targets = tc_targets.cuda()
+                    r_idx = r_idx.cuda()
+                    e1_idx = e1_idx.cuda()
                 if tc_batch_iterator and tc_batch_iterator%len(head_to_relation_batch) == 0:
                     random.shuffle(head_to_relation_batch)
                 tc_loss = embedding_model.forward_head_and_loss(e1_idx, r_idx, tc_targets)
@@ -217,18 +216,15 @@ class Experiment:
                 
                 target_sequence = self.map_to_token(labels)
                 if train_on_gpu:
-                    x1, x2, labels = x1.cuda(torch.device('cuda:0')), x2.cuda(torch.device('cuda:0')), labels.cuda(torch.device('cuda:0'))
+                    x1, x2, labels = x1.cuda(), x2.cuda(), labels.cuda()
                 pred_sequence, scores = synthesizer(x1, x2)
                 cs_loss = synthesizer.loss(scores, labels)
-                #loss = 0.5 * (tc_loss + cs_loss)
+                loss = 0.5 * (tc_loss + cs_loss)
                 s_acc, h_acc = self.compute_accuracy(pred_sequence, target_sequence)
                 soft_acc.append(s_acc); hard_acc.append(h_acc)
-                #train_losses.append(loss.item())
-                train_losses.append(tc_loss.item()+cs_loss.item())
+                train_losses.append(loss.item())
                 opt.zero_grad()
-                #loss.backward()
-                tc_loss.backward()
-                cs_loss.backward()
+                loss.backward()
                 clip_grad_value_(synthesizer.parameters(), clip_value=self.clip_value)
                 clip_grad_value_(embedding_model.parameters(), clip_value=self.clip_value)
                 opt.step()
