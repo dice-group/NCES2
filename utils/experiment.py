@@ -91,8 +91,8 @@ class Experiment:
         print("*"*20+"Trainable model size"+"*"*20)
         size = sum([p.numel() for p in synthesizer.parameters()])
         size_ = sum([p.numel() for p in embedding_model.parameters()])
-        print(f"Synthesizer ({synthesizer.num_inds} inducing points): {size}")
-        print(f"Embedding Model ({synthesizer.embedding_dim} embedding dimensions): {size_}")
+        print(f"Synthesizer ({synthesizer.name} with {synthesizer.num_inds} inducing points): {size}")
+        print(f"Embedding Model ({embedding_model.name} with {synthesizer.embedding_dim} embedding dimensions): {size_}")
         print("*"*20+"Trainable model size"+"*"*20)
         print()
         return size, size_
