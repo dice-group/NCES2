@@ -32,7 +32,7 @@ def str2bool(v):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--kbs', type=str, nargs='+', default=['carcinogenesis'], choices=['carcinogenesis', 'mutagenesis', 'semantic_bible', 'vicodi'], help='Knowledge base name')
+    parser.add_argument('--kbs', type=str, nargs='+', default=['carcinogenesis'], help='Knowledge base name')
     parser.add_argument('--save_results', type=str2bool, default=False, help='Whether to save the evaluation results')
     parser.add_argument('--verbose', type=str2bool, default=False, help='Whether to print the target and predicted class expressions')
     args = parser.parse_args()

@@ -1,9 +1,9 @@
 import os, sys
 sys.path.append(os.path.dirname(os.path.realpath(__file__)).split('utils')[0])
-#sys.path.append(os.path.dirname(os.path.realpath(__file__)).split('utils')[0]+"utils")
+sys.path.append(os.path.dirname(os.path.realpath(__file__)).split('utils')[0]+'utils/')
 from nces import BaseConceptSynthesis
 import numpy as np, torch, pandas as pd
-from .data import Data
+from data import Data
 import random
 import copy
 
@@ -30,10 +30,6 @@ class CSDataLoader(BaseConceptSynthesis, Data, torch.utils.data.Dataset):
         if self.shuffle_examples:
             random.shuffle(pos)
             random.shuffle(neg)
-        #assert '#' in pos[0] or '.' in pos[0], 'Namespace error, expected separator # or .'
-        #print("Emb Mat: ", self.embeddings.shape)
-        #print("\nPos\n")
-        #print(self.data_triples.entity2idx.loc[pos].values)
         datapoint_pos = self.embeddings[self.data_triples.entity2idx.loc[pos].values.squeeze()]
         datapoint_neg = self.embeddings[self.data_triples.entity2idx.loc[neg].values.squeeze()]
         labels, length = self.get_labels(key)

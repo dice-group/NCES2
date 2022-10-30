@@ -39,12 +39,12 @@ parser.add_argument('--learner_name', type=str, default="SetTransformer", choice
 parser.add_argument('--knowledge_base_path', type=str, default="", help='Path to KB owl file')
 parser.add_argument('--path_to_triples', type=str, default="", help='Path to KG (result of the conversion of KB to KG)')
 parser.add_argument('--learning_rate', type=float, default=3e-4, help='Learning rate')
-parser.add_argument('--embedding_dim', type=int, default=40, help='Number of embedding dimensions')
-parser.add_argument('--input_size', type=int, default=40, help='Number of embedding dimensions in the input')
+parser.add_argument('--embedding_dim', type=int, default=64, help='Number of embedding dimensions')
+parser.add_argument('--input_size', type=int, default=64, help='Number of embedding dimensions in the input')
 parser.add_argument('--num_workers', type=int, default=12, help='Number of workers to use to load training data')
 parser.add_argument('--proj_dim', type=int, default=128, help='The projection dimension for examples')
-parser.add_argument('--proj_dims', type=int, nargs='+', default=[64, 128, 256], help='Different projection dimensions to consider')
-parser.add_argument('--num_inds', type=int, default=32, help='Number of induced instances')
+parser.add_argument('--num_inds', type=int, default=64, help='Number of induced instances')
+parser.add_argument('--all_num_inds', type=int, nargs='+', default=[64], help='Number of induced instances provided as a list')
 parser.add_argument('--num_heads', type=int, default=4, help='Number of attention heads')
 parser.add_argument('--num_seeds', type=int, default=1, help='Number of seed components in the output')
 parser.add_argument('--num_examples', type=int, default=1000, help='Total number of examples for concept learning')
@@ -60,6 +60,7 @@ parser.add_argument('--feature_map_dropout', type=float, default=0.1, help='Feat
 parser.add_argument('--hidden_dropout', type=float, default=0.1, help='Hidden dropout probability during embedding computation')
 parser.add_argument('--kernel_size', type=int, default=4, help='Kernel size in ConEx')
 parser.add_argument('--num_of_output_channels', type=int, default=8, help='Number of output channels in ConEx')
+parser.add_argument('--gamma', type=float, default=1.0, help='Margin in TransE embedding model')
 parser.add_argument('--epochs', type=int, default=400, help='Number of training epochs')
 parser.add_argument('--batch_size', type=int, default=256, help='Training batch size')
 parser.add_argument('--cross_validate', type=str2bool, default=False, help='Whether to use a 10-fold cross-validation setting')
@@ -91,8 +92,8 @@ for kb in args.kbs:
     
     args.knowledge_base_path = f"datasets/{kb}/{kb}.owl"
     args.path_to_triples = f"datasets/{kb}/Triples/"
-    for proj_dim in args.proj_dims:
-        args.proj_dim = proj_dim
+    for num_inds in args.all_num_inds:
+        args.num_inds = num_inds
         experiment = Experiment(args)
         final = args.final
         test = args.test

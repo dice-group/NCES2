@@ -65,20 +65,98 @@ def collate_batch(batch):
         pos_emb_list.append(pos_emb)
         neg_emb_list.append(neg_emb)
         target_labels.append(label)
-    pos_emb_list = pad_sequence(pos_emb_list, batch_first=True, padding_value=0)
-    neg_emb_list = pad_sequence(neg_emb_list, batch_first=True, padding_value=0)
+    try:
+        pos_emb_list = pad_sequence(pos_emb_list, batch_first=True, padding_value=0)
+    except:
+        temp_pos = []
+        for t in pos_emb_list:
+            if t.ndim != 2:
+                temp_pos.append(t.reshape(1, -1))
+            else:
+                temp_pos.append(t)
+        pos_emb_list = pad_sequence(temp_pos, batch_first=True, padding_value=0)
+
+    try:
+        neg_emb_list = pad_sequence(neg_emb_list, batch_first=True, padding_value=0)
+    except:
+        temp_neg = []
+        for t in neg_emb_list:
+            if t.ndim != 2:
+                temp_neg.append(t.reshape(1, -1))
+            else:
+                temp_neg.append(t)
+        neg_emb_list = pad_sequence(temp_neg, batch_first=True, padding_value=0)
     target_labels = pad_sequence(target_labels, batch_first=True, padding_value=-100)
     return pos_emb_list, neg_emb_list, target_labels
 
-def get_data(kb, embeddings, kwargs):
+#def get_data(kb, proj_dim, kb_emb_model_name, emb_dim, args):
+#    data_test_path = f"datasets/{kb}/Test_data/Data.json"
+#    with open(data_test_path, "r") as file:
+#        data_test = json.load(file)
+#    data_test = list(data_test.items())
+#    test_dataset = CSDataLoader(test_data, args)
+#    embedding_model = torch.load(f"datasets/{kb}/Model_weights/SetTransformer_{kb_emb_model_name}_Emb_proj_dim{hidden}d_emb_dim{emb_dim}d.pt")
+#    test_dataset.load_embeddings(embedding_model)
+#    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers, collate_fn=collate_batch, shuffle=False)
+#    print("Number of learning problems: ", len(test_dataset))
+#    return test_dataloader
+
+def predict(kb, models, args):
     data_test_path = f"datasets/{kb}/Test_data/Data.json"
     with open(data_test_path, "r") as file:
-        data_test = json.load(file)
-    data_test = list(data_test.items())
-    test_dataset = CSDataLoader(data_test, embeddings, kwargs)
-    print("Number of learning problems: ", len(test_dataset))
-    test_dataloader = DataLoader(test_dataset, batch_size=kwargs.batch_size, num_workers=kwargs.num_workers, collate_fn=collate_batch, shuffle=False)
-    return test_dataloader
+        test_data = json.load(file)
+    test_data = list(test_data.items())
+    args.path_to_triples = f"datasets/{kb}/Triples/" ## Loads the smallest dataset triples by default. Only required to intitalize CSDataLoader
+    test_dataset = CSDataLoader(test_data, args)
+    soft_acc, hard_acc = 0.0, 0.0
+    preds = []
+    targets = []
+    if isinstance(models, list):
+        for i, model in enumerate(models):
+            model.eval()
+            scores = []
+            emb_dim = model.embedding_dim
+            num_inds = model.num_inds
+            embedding_model = torch.load(f"datasets/{kb}/Model_weights/SetTransformer_{args.kb_emb_model}_Emb_inducing_points{num_inds}.pt",
+                                        map_location = torch.device("cpu"))
+            test_dataset.load_embeddings(embedding_model)
+            test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers, collate_fn=collate_batch, shuffle=False)
+            for x1, x2, labels in tqdm(test_dataloader):
+                if i == 0:
+                    target_sequence = map_to_token(model, labels)
+                    targets.append(target_sequence)
+                _, sc = model(x1, x2)
+                scores.append(sc) 
+            scores = torch.cat(scores, 0)
+            if i == 0:
+                Scores = scores
+            else:
+                Scores = Scores + scores
+        Scores = Scores / len(models)
+        pred_sequence = model.inv_vocab[Scores.argmax(1)]
+        targets = np.concatenate(targets, 0)
+        assert len(targets) == len(pred_sequence), f"Something went wrong: len(targets) is {len(targets)} and len(predictions) is {len(pred_sequence)}"
+        soft_acc, hard_acc = compute_accuracy(pred_sequence, targets)
+        print(f"Average syntactic accuracy, Soft: {soft_acc}%, Hard: {hard_acc}%")
+        return pred_sequence, targets
+    else:
+        models.eval()
+        emb_dim = models.embedding_dim
+        num_inds = models.num_inds
+        embedding_model = torch.load(f"datasets/{kb}/Model_weights/SetTransformer_{args.kb_emb_model}_Emb_inducing_points{num_inds}.pt",
+                                    map_location = torch.device("cpu"))
+        test_dataset.load_embeddings(embedding_model)
+        test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers, collate_fn=collate_batch, shuffle=False)
+        for x1, x2, labels in tqdm(test_dataloader):
+            target_sequence = map_to_token(models, labels)
+            pred_sequence, _ = models(x1, x2)
+            preds.append(pred_sequence)
+            targets.append(target_sequence)
+            s_acc, h_acc = compute_accuracy(pred_sequence, target_sequence)
+            soft_acc += s_acc
+            hard_acc += h_acc
+        print(f"Average syntactic accuracy, Soft: {soft_acc/len(test_dataloader)}%, Hard: {hard_acc/len(test_dataloader)}%")
+        return np.concatenate(preds, 0), np.concatenate(targets, 0)
 
 def get_ensemble_prediction(models, x1, x2):
     for i,model in enumerate(models):
@@ -92,52 +170,35 @@ def get_ensemble_prediction(models, x1, x2):
     prediction = model.inv_vocab[scores.argmax(1)]
     return prediction
 
-def predict_class_expressions(kb, model_name, args):
-    if isinstance(model_name, list):
-        print(f"\n## Ensemble prediction ({'+'.join(model_name)})")
-    
-        models = [torch.load(f"datasets/{kb}/Model_weights/{name}.pt", map_location=torch.device('cpu'))\
-                      for name in model_name]
-        model = models[0] # Needed for vocabulary only, see map_to_token below
-        model.eval()
-    else:
-        print(f"\n## Single model prediction ({model_name})")
-        model = torch.load(f"datasets/{kb}/Model_weights/{model_name}.pt", map_location=torch.device('cpu'))
-        model.eval()
+def synthesize_class_expressions(kb, num_inds, emb_dim, args):
     args.knowledge_base_path = "datasets/"+f"{kb}/{kb}.owl"
-    embeddings = pd.read_csv(f"datasets/{kb}/Embeddings/ConEx_entity_embeddings.csv").set_index('Unnamed: 0')
-    dataloader = get_data(kb, embeddings, args)
-    soft_acc, hard_acc = 0.0, 0.0
-    preds = []
-    targets = []
-    for x1, x2, labels in tqdm(dataloader):
-        target_sequence = map_to_token(model, labels)
-        if isinstance(model_name, list):
-            pred_sequence = get_ensemble_prediction(models, x1, x2)
-        else:
-            pred_sequence, _ = model(x1, x2)
-        preds.append(pred_sequence)
-        targets.append(target_sequence)
-        s_acc, h_acc = compute_accuracy(pred_sequence, target_sequence)
-        soft_acc += s_acc
-        hard_acc += h_acc
-    print(f"Average syntactic accuracy, Soft: {soft_acc/len(dataloader)}%, Hard: {hard_acc/len(dataloader)}%")
-    return np.concatenate(preds, 0), np.concatenate(targets, 0)
+    if isinstance(num_inds, list):
+        print(f"\n## Ensemble prediction ({'+'.join([f'SetTransformer_I{inds}' for inds in num_inds])})")
+    
+        models = [torch.load(f"datasets/{kb}/Model_weights/{args.kb_emb_model}_SetTransformer_inducing_points{inds}.pt",
+                             map_location=torch.device("cpu")) for inds in num_inds]
+        #model = models[0] # Needed for vocabulary only, see map_to_token below
+        #model.eval()
+        return predict(kb, models, args)
+    else:
+        print(f"\n## Single model prediction (SetTransformer_I{num_inds})")
+        model = torch.load(f"datasets/{kb}/Model_weights/{args.kb_emb_model}_SetTransformer_inducing_points{num_inds}.pt",
+                           map_location=torch.device("cpu"))
+        return predict(kb, model, args)
+    
+    
 
-
-def evaluate_nces(kb_name, models, args, save_results=False, verbose=False):
+def evaluate_nces(kb_name, num_inds, emb_dim, args, save_results=False, verbose=False):
     print('#'*50)
     print('NCES evaluation on {} KB:'.format(kb_name))
     print('#'*50)
     desc = ""
     if args.shuffle_examples:
         desc = "_Shuffle"
-    All_metrics = {m: defaultdict(lambda: defaultdict(list)) for m in models}
+    All_metrics = {m: defaultdict(lambda: defaultdict(list)) for m in [f"SetTransformer_I{inds}" for inds in num_inds]}
     print()
     kb = KnowledgeBase(path=f"datasets/{kb_name}/{kb_name}.owl")
     namespace = kb.ontology()._onto.base_iri
-    if kb_name == 'family-benchmark':
-        namespace = 'http://www.benchmark.org/family#'
     if kb_name == 'vicodi':
         namespace = 'http://vicodi.org/ontology#'
     print("KB namespace: ", namespace)
@@ -148,9 +209,10 @@ def evaluate_nces(kb_name, models, args, save_results=False, verbose=False):
     All_individuals = set(kb.individuals())
     with open(f"datasets/{kb_name}/Test_data/Data.json", "r") as file:
         data_test = json.load(file)
-    for model_name in models:
+    for model_name in All_metrics.keys():
+        num_inds = int(model_name.split("I")[-1])
         t0 = time.time()
-        predictions, targets = predict_class_expressions(kb_name, model_name, args)
+        predictions, targets = synthesize_class_expressions(kb_name, num_inds, emb_dim, args)
         t1 = time.time()
         duration = (t1-t0)/len(predictions)
         for i, pb_str in enumerate(targets):
@@ -204,19 +266,28 @@ def evaluate_nces(kb_name, models, args, save_results=False, verbose=False):
                     except Exception:
                         print(f"Could not understand expression {pred}")
             if prediction is None:
-                prediction = dl_parser.parse_expression('⊤')
+                prediction = syntax_checker.get_concept(['⊤'])
             target_expression = dl_parser.parse_expression(pb_str) # The target class expression
+            #try:
+            positive_examples = {ind.get_iri().as_str().split("/")[-1] for ind in kb.individuals(target_expression)}
+            negative_examples = All_individuals-positive_examples
             try:
-                positive_examples = {ind.get_iri().as_str().split("/")[-1] for ind in kb.individuals(target_expression)}
-                negative_examples = All_individuals-positive_examples
                 acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
-            except Exception as err:
-                print(err)
+            except Exception as e:
+                print("Error on ", prediction)
+                print(e)
+                continue
+            #except Exception as err:
+            #    print(err)
             if verbose:
                 print(f'Problem {i}, Target: {pb_str}, Prediction: {syntax_checker.renderer.render(prediction)}, Acc: {acc}, F1: {f1}')
                 print()
             All_metrics[model_name]['acc']['values'].append(acc)
-            All_metrics[model_name]['prediction']['values'].append(syntax_checker.renderer.render(prediction))
+            try:
+                All_metrics[model_name]['prediction']['values'].append(syntax_checker.renderer.render(prediction))
+            except:
+                print(f"Error in rendering {prediction}")
+                All_metrics[model_name]['prediction']['values'].append("Unknown")
             All_metrics[model_name]['f1']['values'].append(f1)
             All_metrics[model_name]['time']['values'].append(duration)
             
@@ -237,17 +308,16 @@ def evaluate_nces(kb_name, models, args, save_results=False, verbose=False):
                 json.dump(All_metrics, file, indent=3, ensure_ascii=False)
 
                 
-def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
+def evaluate_ensemble(kb_name, args, emb_dim, save_results=False, verbose=False):
     print('#'*50)
     print('NCES evaluation on {} KB:'.format(kb_name))
     print('#'*50)
-    All_metrics = {'+'.join(combine): defaultdict(lambda: defaultdict(list)) for combine in [["SetTransformer", "GRU"], \
-                                        ["SetTransformer", "LSTM"], ["GRU", "LSTM"], ["SetTransformer", "GRU", "LSTM"]]}
+    All_metrics = {'+'.join(combine): defaultdict(lambda: defaultdict(list)) for combine in [["SetTransformer_I64", "SetTransformer_I128"], \
+                                        ["SetTransformer_I64", "SetTransformer_I256"], ["SetTransformer_I128", "SetTransformer_I256"],\
+                                        ["SetTransformer_I64", "SetTransformer_I128", "SetTransformer_I256"]]}
     print()
     kb = KnowledgeBase(path=f"datasets/{kb_name}/{kb_name}.owl")
     namespace = kb.ontology()._onto.base_iri
-    if kb_name == 'family-benchmark':
-        namespace = 'http://www.benchmark.org/family#'
     if kb_name == 'vicodi':
         namespace = 'http://vicodi.org/ontology#'
     print("KB namespace: ", namespace)
@@ -260,7 +330,8 @@ def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
         data_test = json.load(file)
     for combine in All_metrics.keys():     
         t0 = time.time()
-        predictions, targets = predict_class_expressions(kb_name, combine.split('+'), args)
+        num_inds = [int(model_name.split("I")[-1]) for model_name in combine.split("+")]
+        predictions, targets = synthesize_class_expressions(kb_name, num_inds, emb_dim, args) # kb_name, proj_dim, emb_dim, args
         t1 = time.time()
         duration = (t1-t0)/len(predictions)
         for i, pb_str in enumerate(targets):
@@ -313,19 +384,25 @@ def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
                     except Exception:
                         print(f"Could not understand expression {pred}")
             if prediction is None:
-                prediction = dl_parser.parse_expression('⊤')
+                prediction = syntax_checker.get_concept(['⊤'])
             target_expression = dl_parser.parse_expression(pb_str) # The target class expression
+            positive_examples = {ind.get_iri().as_str().split("/")[-1] for ind in kb.individuals(target_expression)}
+            negative_examples = All_individuals-positive_examples
             try:
-                positive_examples = {ind.get_iri().as_str().split("/")[-1] for ind in kb.individuals(target_expression)}
-                negative_examples = All_individuals-positive_examples
                 acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
-            except Exception as err:
-                print(err)
+            except Exception as e:
+                print("Error on ", prediction)
+                print(e)
+                continue
+            #acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
             if verbose:
                 print(f'Problem {i}, Target: {pb_str}, Prediction: {syntax_checker.renderer.render(prediction)}, Acc: {acc}, F1: {f1}')
                 print()
             All_metrics[combine]['acc']['values'].append(acc)
-            All_metrics[combine]['prediction']['values'].append(syntax_checker.renderer.render(prediction))
+            try:
+                All_metrics[combine]['prediction']['values'].append(syntax_checker.renderer.render(prediction))
+            except:
+                All_metrics[combine]['prediction']['values'].append("Unknown")
             All_metrics[combine]['f1']['values'].append(f1)
             All_metrics[combine]['time']['values'].append(duration)
 

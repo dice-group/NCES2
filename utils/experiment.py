@@ -91,8 +91,8 @@ class Experiment:
         print("*"*20+"Trainable model size"+"*"*20)
         size = sum([p.numel() for p in synthesizer.parameters()])
         size_ = sum([p.numel() for p in embedding_model.parameters()])
-        print("Synthesizer: ", size)
-        print("Embedding Model: ", size_)
+        print(f"Synthesizer ({synthesizer.num_inds} inducing points): {size}")
+        print(f"Embedding Model ({synthesizer.embedding_dim} embedding dimensions): {size_}")
         print("*"*20+"Trainable model size"+"*"*20)
         print()
         return size, size_
@@ -158,10 +158,10 @@ class Experiment:
         else:
             print("GPU available !")
         print()
-        print("#"*50)
+        print("#"*100)
         print()
         print("{} starts training on {} data set \n".format(self.cs.model.name, self.kwargs.knowledge_base_path.split("/")[-2]))
-        print("#"*50, "\n")
+        print("#"*100, "\n")
         
         ## Make a copy of the model (initialization)
         synthesizer = copy.deepcopy(self.cs.model)
@@ -255,7 +255,7 @@ class Experiment:
                            "Number of Epochs": epochs, "Runtime (s)": duration}
             if not os.path.exists(base_path+f"datasets/{self.kb}/Runtime/"):
                 os.mkdir(base_path+f"datasets/{self.kb}/Runtime")
-            with open(base_path+f"datasets/{self.kb}/Runtime/"+"Runtime_"+desc1+f"_proj_dim{synthesizer.proj_dim}d_emb_dim{synthesizer.embedding_dim}d.json", "w") as file:
+            with open(base_path+f"datasets/{self.kb}/Runtime/"+"Runtime_"+desc1+f"_inducing_points{synthesizer.num_inds}.json", "w") as file:
                 json.dump(runtime_info, file, indent=3)
                 
         results_dict = dict()
@@ -284,20 +284,20 @@ class Experiment:
         print("Train soft accuracy: {} ... Train hard accuracy: {}".format(max(Train_acc['soft']), max(Train_acc['hard'])))
         print()
         results_dict.update({"Train max soft acc": max(Train_acc['soft']), "Train max hard acc": max(Train_acc['hard']), "Train min loss": min(Train_loss)})
-        results_dict.update({'Vocab Size': len(synthesizer.vocab)})
+        results_dict.update({'Vocab size': len(synthesizer.vocab)})
         if not os.path.exists(base_path+f"datasets/{self.kb}/Results/"):
             os.mkdir(base_path+f"datasets/{self.kb}/Results/")
-        with open(base_path+f"datasets/{self.kb}/Results/"+"Train_Results_"+desc1+f"_proj_dim{synthesizer.proj_dim}d_emb_dim{synthesizer.embedding_dim}d.json", "w") as file:
+        with open(base_path+f"datasets/{self.kb}/Results/"+"Train_Results_"+desc1+f"_inducing_points{synthesizer.num_inds}.json", "w") as file:
                 json.dump(results_dict, file, indent=3)
         self.kb_embedding_data.entity2idx.to_csv(base_path+f"datasets/{self.kb}/Model_weights/"+desc2+\
-                                                 f"_proj_dim{synthesizer.proj_dim}d_emb_dim{synthesizer.embedding_dim}d_entity_idx.csv")
+                                                 f"_inducing_points{synthesizer.num_inds}_entity_idx.csv")
         self.kb_embedding_data.relation2idx.to_csv(base_path+f"datasets/{self.kb}/Model_weights/"+desc2+\
-                                                   f"_proj_dim{synthesizer.proj_dim}d_emb_dim{synthesizer.embedding_dim}d_relation_idx.csv")
+                                                   f"_inducing_points{synthesizer.num_inds}_relation_idx.csv")
         if save_model:
             if not os.path.exists(base_path+f"datasets/{self.kb}/Model_weights/"):
                 os.mkdir(base_path+f"datasets/{self.kb}/Model_weights/")
-            torch.save(synthesizer, base_path+f"datasets/{self.kb}/Model_weights/"+desc1+f"_proj_dim{synthesizer.proj_dim}d_emb_dim{synthesizer.embedding_dim}d.pt")
-            torch.save(embedding_model, base_path+f"datasets/{self.kb}/Model_weights/"+desc2+f"_proj_dim{synthesizer.proj_dim}d_emb_dim{synthesizer.embedding_dim}d.pt")
+            torch.save(synthesizer, base_path+f"datasets/{self.kb}/Model_weights/"+desc1+f"_inducing_points{synthesizer.num_inds}.pt")
+            torch.save(embedding_model, base_path+f"datasets/{self.kb}/Model_weights/"+desc2+f"_inducing_points{synthesizer.num_inds}.pt")
             print("{} and {} saved".format(synthesizer.name, embedding_model.name))
             print()
         plot_data = (np.array(Train_acc['soft']), np.array(Train_acc['hard']), Train_loss)
@@ -313,11 +313,9 @@ class Experiment:
         for net in List_nets:
             self.cs.learner_name = net
             desc = kb_emb_model+'_'+net
-            print()
-            print('Learner: ', self.cs.learner_name)
             self.cs.refresh()
             train_soft_acc, train_hard_acc, train_l = self.train(train_data, test_data, epochs, test, save_model, kb_emb_model, optimizer, record_runtime, final)
-            with open(base_path+f"datasets/{self.kb}/Plot_data/"+desc+f"_proj_dim{self.cs.model.proj_dim}d_emb_dim{self.cs.model.embedding_dim}d.json", "w") as plot_file:
+            with open(base_path+f"datasets/{self.kb}/Plot_data/"+desc+f"_inducing_points{self.cs.model.num_inds}.json", "w") as plot_file:
                 json.dump({"soft acc": list(train_soft_acc), "hard acc": list(train_hard_acc), "loss": list(train_l)}, plot_file, indent=3)
 
             
