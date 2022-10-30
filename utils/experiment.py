@@ -2,8 +2,9 @@ import numpy as np, copy
 import torch
 from tqdm import tqdm
 from collections import defaultdict
-from torch.utils.data import DataLoader
 import sys, os, json
+os.environ["CUDA_VISIBLE_DEVICES"] ="0,1"
+from torch.utils.data import DataLoader
 base_path = os.path.dirname(os.path.realpath(__file__)).split('utils')[0]
 sys.path.append(base_path)
 from nces import BaseConceptSynthesis
@@ -181,8 +182,8 @@ class Experiment:
             desc1 = desc1+'_final'
             desc2 = desc2+'_final'
         if train_on_gpu:
-            synthesizer.cuda()
-            embedding_model.cuda()
+            synthesizer.cuda('0')
+            embedding_model.cuda('1')
                         
         opt = self.get_optimizer(synthesizer=synthesizer, embedding_model=embedding_model, optimizer=optimizer)
         if self.decay_rate:
