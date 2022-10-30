@@ -182,8 +182,8 @@ class Experiment:
             desc1 = desc1+'_final'
             desc2 = desc2+'_final'
         if train_on_gpu:
-            synthesizer.cuda('0')
-            embedding_model.cuda('1')
+            synthesizer.cuda(torch.device('cuda:0'))
+            embedding_model.cuda(torch.device('cuda:1'))
                         
         opt = self.get_optimizer(synthesizer=synthesizer, embedding_model=embedding_model, optimizer=optimizer)
         if self.decay_rate:
@@ -207,9 +207,9 @@ class Experiment:
                 head_batch = head_to_relation_batch[tc_batch_iterator%len(head_to_relation_batch)]
                 e1_idx, r_idx, tc_targets = head_batch
                 if train_on_gpu:
-                    tc_targets = tc_targets.cuda()
-                    r_idx = r_idx.cuda()
-                    e1_idx = e1_idx.cuda()
+                    tc_targets = tc_targets.cuda(torch.device('cuda:1'))
+                    r_idx = r_idx.cuda(torch.device('cuda:1'))
+                    e1_idx = e1_idx.cuda(torch.device('cuda:1'))
                 if tc_batch_iterator and tc_batch_iterator%len(head_to_relation_batch) == 0:
                     random.shuffle(head_to_relation_batch)
                 tc_loss = embedding_model.forward_head_and_loss(e1_idx, r_idx, tc_targets)
@@ -217,7 +217,7 @@ class Experiment:
                 
                 target_sequence = self.map_to_token(labels)
                 if train_on_gpu:
-                    x1, x2, labels = x1.cuda(), x2.cuda(), labels.cuda()
+                    x1, x2, labels = x1.cuda(torch.device('cuda:0')), x2.cuda(torch.device('cuda:0')), labels.cuda(torch.device('cuda:0'))
                 pred_sequence, scores = synthesizer(x1, x2)
                 cs_loss = synthesizer.loss(scores, labels)
                 loss = 0.5 * (tc_loss + cs_loss)
