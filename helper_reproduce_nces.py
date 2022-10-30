@@ -313,8 +313,8 @@ def evaluate_ensemble(kb_name, args, emb_dim, save_results=False, verbose=False)
     print('NCES evaluation on {} KB:'.format(kb_name))
     print('#'*50)
     All_metrics = {'+'.join(combine): defaultdict(lambda: defaultdict(list)) for combine in [["SetTransformer_I64", "SetTransformer_I128"], \
-                                        ["SetTransformer_I64", "SetTransformer_I256"], ["SetTransformer_I128", "SetTransformer_I256"],\
-                                        ["SetTransformer_I64", "SetTransformer_I128", "SetTransformer_I256"]]}
+                                        ["SetTransformer_I64", "SetTransformer_I192"], ["SetTransformer_I128", "SetTransformer_I192"],\
+                                        ["SetTransformer_I64", "SetTransformer_I128", "SetTransformer_I192"]]}
     print()
     kb = KnowledgeBase(path=f"datasets/{kb_name}/{kb_name}.owl")
     namespace = kb.ontology()._onto.base_iri

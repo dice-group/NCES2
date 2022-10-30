@@ -239,7 +239,7 @@ class Experiment:
                   "Train soft acc: {:.2f}%...".format(tr_soft_acc),
                   "Train hard acc: {:.2f}%...".format(tr_hard_acc))
             if np.random.rand() > 0.7:
-                print("Visualizing some prediction: ", pred_sequence[np.random.choice(range(x1.shape[0]))])
+                print("Visualizing some random prediction: ", pred_sequence[np.random.choice(range(x1.shape[0]))])
                 print()
             weights_cs = copy.deepcopy(synthesizer.state_dict())
             weights_tc = copy.deepcopy(embedding_model.state_dict())

@@ -44,7 +44,7 @@ parser.add_argument('--input_size', type=int, default=64, help='Number of embedd
 parser.add_argument('--num_workers', type=int, default=12, help='Number of workers to use to load training data')
 parser.add_argument('--proj_dim', type=int, default=128, help='The projection dimension for examples')
 parser.add_argument('--num_inds', type=int, default=64, help='Number of induced instances')
-parser.add_argument('--all_num_inds', type=int, nargs='+', default=[64, 128, 256], help='Number of induced instances provided as a list')
+parser.add_argument('--all_num_inds', type=int, nargs='+', default=[64, 128, 192], help='Number of induced instances provided as a list')
 parser.add_argument('--num_heads', type=int, default=4, help='Number of attention heads')
 parser.add_argument('--num_seeds', type=int, default=1, help='Number of seed components in the output')
 parser.add_argument('--num_examples', type=int, default=1000, help='Total number of examples for concept learning')
