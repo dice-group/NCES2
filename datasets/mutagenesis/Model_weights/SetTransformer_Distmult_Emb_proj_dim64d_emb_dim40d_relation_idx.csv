@@ -1,0 +1,15 @@
+,0
+22-rdf-syntax-ns#type,0
+mutagenesis#act,1
+mutagenesis#charge,2
+mutagenesis#hasAtom,3
+mutagenesis#hasBond,4
+mutagenesis#hasFifeExamplesOfAcenthrylenes,5
+mutagenesis#hasStructure,6
+mutagenesis#hasThreeOrMoreFusedRings,7
+mutagenesis#inBond,8
+mutagenesis#logp,9
+mutagenesis#lumo,10
+rdf-schema#domain,11
+rdf-schema#range,12
+rdf-schema#subClassOf,13
