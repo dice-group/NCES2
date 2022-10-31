@@ -54,3 +54,4 @@ class HeadAndRelationBatchLoader(torch.utils.data.Dataset):
         y_vec = torch.zeros(self.num_e)
         y_vec[self.tail_idx[idx]] = 1  # given head and rel, set 1's for all tails.
         return self.head_idx[idx], self.rel_idx[idx], y_vec
+    

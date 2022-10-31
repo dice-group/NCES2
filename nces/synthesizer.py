@@ -37,8 +37,6 @@ class ConceptSynthesizer:
             return Complex(self.kwargs)
         elif self.kb_emb_model == 'Distmult':
             return Distmult(self.kwargs)
-        elif self.kb_emb_model == 'TransE':
-            return TransE(self.kwargs)
         elif self.kb_emb_model == 'Tucker':
             return Tucker(self.kwargs)
         else:

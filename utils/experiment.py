@@ -171,7 +171,7 @@ class Experiment:
         triple_data_idxs = self.get_data_idxs(self.kb_embedding_data.data_triples)
         head_to_relation_batch = list(DataLoader(
             HeadAndRelationBatchLoader(er_vocab=self.get_er_vocab(triple_data_idxs), num_e=len(self.kb_embedding_data.entities)),
-            batch_size=2*self.batch_size, num_workers=self.num_workers, shuffle=True))
+            batch_size=3*self.batch_size, num_workers=self.num_workers, shuffle=True))
         
         ## Get combined model size
         size1, size2 = self.show_num_learnable_params(synthesizer, embedding_model)
