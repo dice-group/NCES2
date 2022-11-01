@@ -1,0 +1,10 @@
+{
+   "Synthesizer size": 1126384,
+   "Embedding model size": 345852,
+   "Test soft acc": 69.18484848484849,
+   "Test hard acc": 73.07947704469444,
+   "Train max soft acc": 68.41813829004757,
+   "Train max hard acc": 74.9344389021523,
+   "Train min loss": 0.09343671649694443,
+   "Vocab size": 125
+}
