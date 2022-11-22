@@ -24,7 +24,8 @@ class KBToDataForConceptSynthesis:
         self.path = path
         self.dl_syntax_renderer = DLSyntaxObjectRenderer()
         self.kb = KnowledgeBase(path=path)
-        self.num_examples = min(self.kb.individuals_count()//2, 1000)
+        self.total_num_inds = self.kb.individuals_count()
+        self.num_examples = min(self.total_num_inds//2, 1000)
         self.min_num_pos_examples = min_num_pos_examples
         self.max_num_pos_examples = max_num_pos_examples
         atomic_concepts: Final = frozenset(self.kb.ontology().classes_in_signature())
@@ -45,60 +46,116 @@ class KBToDataForConceptSynthesis:
         Concepts = self.lp_gen.generate()
         non_redundancy_hash_map = dict()
         show_some_length = True
-        for concept in sorted(Concepts, key=lambda c: self.kb.concept_len(c)):
-            if not self.kb.individuals_set(concept) in non_redundancy_hash_map and self.min_num_pos_examples <= self.kb.individuals_count(concept) <= self.max_num_pos_examples:
-                non_redundancy_hash_map[self.kb.individuals_set(concept)] = concept
-            else: continue
-            if self.kb.concept_len(concept) >= 15 and show_some_length:
-                print("A long concept found: ", self.kb.concept_len(concept))
-                show_some_length = False
+        for concept in tqdm(sorted(Concepts, key=lambda c: self.kb.concept_len(c))[::-1], desc="Filtering process..."):
+            #if not self.kb.individuals_set(concept) in non_redundancy_hash_map and self.min_num_pos_examples <=  <= self.max_num_pos_examples:
+            #if self.kb.individuals_count(concept) < self.total_num_inds:
+            non_redundancy_hash_map[self.kb.individuals_set(concept)] = concept
+            #else: continue
+            #if self.kb.concept_len(concept) >= 15 and show_some_length:
+            #    print("A long concept found: ", self.kb.concept_len(concept))
+            #    show_some_length = False
         print("Concepts generation done!\n")
         print("Number of atomic concepts: ", len(self.atomic_concept_names))
         print("Longest concept length: ", max({l for l in [self.kb.concept_len(c) for c in non_redundancy_hash_map.values()]}), "\n")
         print("Total number of concepts: ", len(non_redundancy_hash_map), "\n")
-        self.train_concepts = list(non_redundancy_hash_map.values())
+        data_train, data_test = train_test_split(list(non_redundancy_hash_map.values()), test_size=0.01, random_state=42)
         print("Data generation completed")
-        return self
+        return data_train, data_test
     
-
-    def save_data(self):
-        data = dict()
-        for concept in tqdm(self.train_concepts):
+    def find_sampling_sizes(self, pos, neg):
+        if min(len(neg),len(pos)) >= self.num_examples//2:
+            if len(pos) > len(neg):
+                num_neg_ex = self.num_examples//2
+                num_pos_ex = self.num_examples-num_neg_ex
+            else:
+                num_pos_ex = self.num_examples//2
+                num_neg_ex = self.num_examples-num_pos_ex
+        elif len(pos) > len(neg):
+            num_neg_ex = len(neg)
+            num_pos_ex = self.num_examples-num_neg_ex
+        elif len(pos) < len(neg):
+            num_pos_ex = len(pos)
+            num_neg_ex = self.num_examples-num_pos_ex
+        return num_pos_ex, num_neg_ex
+    
+    def reinforced_example_sampling(self, data_train, data_test, num_subsamples=4):
+        """ Robust sampling to make sure that we cover many examples for each learning problem: some learning problems contain thousands (or millions on large datasets) of examples, and we aim to sample examples. As a result, we sample several times instead of just one time as in naive_example_sampling.
+        """
+        def sample(pos, neg, n_pos, n_neg):
+            Pos = []
+            Neg = []
+            for _ in range(num_subsamples):
+                Pos.append(random.sample(pos, n_pos))
+                Neg.append(random.sample(neg, n_neg))
+            return Pos, Neg
+        final_data_train = []
+        final_data_test = []
+        All_individuals = set(self.kb.individuals())
+        for concept in tqdm(data_train, desc="Processing and writing training data..."):
+            concept_name = self.dl_syntax_renderer.render(concept.get_nnf())
+            concept_length = self.kb.concept_len(concept)
             pos = set(self.kb.individuals(concept))
-            neg = set(self.kb.individuals())-pos
+            neg = All_individuals-pos
             pos = [ind.get_iri().as_str().split("/")[-1] for ind in pos]
             neg = [ind.get_iri().as_str().split("/")[-1] for ind in neg]
-            if min(len(neg),len(pos)) >= self.num_examples//2:
-                if len(pos) > len(neg):
-                    num_neg_ex = self.num_examples//2
-                    num_pos_ex = self.num_examples-num_neg_ex
-                else:
-                    num_pos_ex = self.num_examples//2
-                    num_neg_ex = self.num_examples-num_pos_ex
-            elif len(pos) > len(neg):
-                num_neg_ex = len(neg)
-                num_pos_ex = self.num_examples-num_neg_ex
-            elif len(pos) < len(neg):
-                num_pos_ex = len(pos)
-                num_neg_ex = self.num_examples-num_pos_ex
-            else:
-                print("Invalid number of instances")
-                continue
+            num_pos_ex, num_neg_ex = self.find_sampling_sizes(pos, neg)
+            if num_pos_ex * num_neg_ex == 0: continue # Extreme cases where there are no positive exaples or negative examples
+            Pos, Neg = sample(pos, neg, num_pos_ex, num_neg_ex)
+            for p, n in zip(Pos, Neg):
+                final_data_train.append([concept_name, {'positive examples': p, 'negative examples': n, 'length': concept_length}])
+        for concept in tqdm(data_test, desc="Processing and writing test data..."):
+            concept_name = self.dl_syntax_renderer.render(concept.get_nnf())
+            concept_length = self.kb.concept_len(concept)
+            pos = set(self.kb.individuals(concept))
+            neg = All_individuals-pos
+            pos = [ind.get_iri().as_str().split("/")[-1] for ind in pos]
+            neg = [ind.get_iri().as_str().split("/")[-1] for ind in neg]
+            num_pos_ex, num_neg_ex = self.find_sampling_sizes(pos, neg)
+            if num_pos_ex * num_neg_ex == 0: continue
             positive = random.sample(pos, num_pos_ex)
             negative = random.sample(neg, num_neg_ex)
-            
+            final_data_test.append([concept_name, {'positive examples': positive, 'negative examples': negative, 'length': concept_length}])
+        return final_data_train, final_data_test
+        
+    def naive_example_sampling(self, data_train, data_test):
+        final_data_train = []
+        final_data_test = []
+        All_individuals = set(self.kb.individuals())
+        for concept in tqdm(data_train, desc="Processing and writing training data..."):
             concept_name = self.dl_syntax_renderer.render(concept.get_nnf())
-            data[concept_name] = {'positive examples': positive, 'negative examples': negative}
+            concept_length = self.kb.concept_len(concept)
+            pos = set(self.kb.individuals(concept))
+            neg = All_individuals-pos
+            pos = [ind.get_iri().as_str().split("/")[-1] for ind in pos]
+            neg = [ind.get_iri().as_str().split("/")[-1] for ind in neg]
+            num_pos_ex, num_neg_ex = self.find_sampling_sizes(pos, neg)
+            if num_pos_ex * num_neg_ex == 0: continue
+            positive = random.sample(pos, num_pos_ex)
+            negative = random.sample(neg, num_neg_ex)
+            final_data_train.append([concept_name, {'positive examples': positive, 'negative examples': negative, 'length': concept_length}])
+        for concept in tqdm(data_test, desc="Processing and writing test data..."):
+            concept_name = self.dl_syntax_renderer.render(concept.get_nnf())
+            concept_length = self.kb.concept_len(concept)
+            pos = set(self.kb.individuals(concept))
+            neg = All_individuals-pos
+            pos = [ind.get_iri().as_str().split("/")[-1] for ind in pos]
+            neg = [ind.get_iri().as_str().split("/")[-1] for ind in neg]
+            num_pos_ex, num_neg_ex = self.find_sampling_sizes(pos, neg)
+            if num_pos_ex * num_neg_ex == 0: continue
+            positive = random.sample(pos, num_pos_ex)
+            negative = random.sample(neg, num_neg_ex)
+            final_data_test.append([concept_name, {'positive examples': positive, 'negative examples': negative, 'length': concept_length}])
+        return final_data_train, final_data_test
+        
             
-        data = list(data.items())
-        data_train, data_test = train_test_split(data, test_size=0.01, random_state=42)
+    def save_data(self, data_train, data_test):
         os.makedirs(f'../datasets/{self.path.split("/")[-2]}/Train_data/', exist_ok=True)
         os.makedirs(f'../datasets/{self.path.split("/")[-2]}/Test_data/', exist_ok=True)
         with open(f'../datasets/{self.path.split("/")[-2]}/Test_data/Data.json', 'w') as file_test:
-            json.dump(dict(data_test), file_test, indent=3, ensure_ascii=False)
+            json.dump(data_test, file_test, indent=3, ensure_ascii=False)
 
         with open(f'../datasets/{self.path.split("/")[-2]}/Train_data/Data.json', 'w') as file_train:
-            json.dump(dict(data_train), file_train, indent=3, ensure_ascii=False)
+            json.dump(data_train, file_train, indent=3, ensure_ascii=False)
 
         print(f'Data saved at ../datasets/{self.path.split("/")[-2]}')
               
@@ -108,8 +165,8 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--kbs', type=str, nargs='+', default=['carcinogenesis'], help='Knowledge base name')
 parser.add_argument('--num_rand_samples', type=int, default=100, help='The number of random samples at each step of the generation process')
-parser.add_argument('--depth', type=int, default=6, help='The depth of refinements')
-parser.add_argument('--k', type=int, default=5, help='The number of fillers to sample')
+parser.add_argument('--depth', type=int, default=3, help='The depth of refinements')
+parser.add_argument('--k', type=int, default=10, help='The number of fillers to sample')
 parser.add_argument('--max_child_len', type=int, default=15, help='Maximum child length')
 parser.add_argument('--max_num_pos_examples', type=int, default=100000, help='Maximum number of positive examples')
 parser.add_argument('--refinement_expressivity', type=float, default=0.5)
@@ -121,4 +178,6 @@ for kb in args.kbs:
     with open(f'../datasets/{kb}/data_generation_settings.json', "w") as setting:
         json.dump(vars(args), setting)
     DataGen = KBToDataForConceptSynthesis(path=f'../datasets/{kb}/{kb}.owl', rho_name=args.rho, depth=args.depth, k=args.k, max_child_length=args.max_child_len, refinement_expressivity=args.refinement_expressivity, downsample_refinements=True, num_rand_samples=args.num_rand_samples, min_num_pos_examples=1, max_num_pos_examples=args.max_num_pos_examples)
-    DataGen.generate_descriptions().save_data()
+    data_train, data_test = DataGen.generate_descriptions()
+    data_train, data_test = DataGen.reinforced_example_sampling(data_train, data_test)
+    DataGen.save_data(data_train, data_test)

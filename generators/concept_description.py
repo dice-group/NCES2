@@ -1,4 +1,5 @@
 import random
+from tqdm import tqdm
 class ConceptDescriptionGenerator:
     """
     Learning problem generator.
@@ -20,7 +21,7 @@ class ConceptDescriptionGenerator:
         roots = self.apply_rho(self.kb.thing)
         print ("|Thing refinements|: ", len(roots))
         Refinements = set(roots)
-        for root in random.sample(roots, k=self.num_rand_samples):
+        for root in tqdm(random.sample(roots, k=self.num_rand_samples), desc="Sampling constructs..."):
             current_state = root
             for _ in range(self.depth):
                 #try:

@@ -89,23 +89,10 @@ def collate_batch(batch):
     target_labels = pad_sequence(target_labels, batch_first=True, padding_value=-100)
     return pos_emb_list, neg_emb_list, target_labels
 
-#def get_data(kb, proj_dim, kb_emb_model_name, emb_dim, args):
-#    data_test_path = f"datasets/{kb}/Test_data/Data.json"
-#    with open(data_test_path, "r") as file:
-#        data_test = json.load(file)
-#    data_test = list(data_test.items())
-#    test_dataset = CSDataLoader(test_data, args)
-#    embedding_model = torch.load(f"datasets/{kb}/Model_weights/SetTransformer_{kb_emb_model_name}_Emb_proj_dim{hidden}d_emb_dim{emb_dim}d.pt")
-#    test_dataset.load_embeddings(embedding_model)
-#    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers, collate_fn=collate_batch, shuffle=False)
-#    print("Number of learning problems: ", len(test_dataset))
-#    return test_dataloader
-
 def predict(kb, models, args):
     data_test_path = f"datasets/{kb}/Test_data/Data.json"
     with open(data_test_path, "r") as file:
         test_data = json.load(file)
-    test_data = list(test_data.items())
     args.path_to_triples = f"datasets/{kb}/Triples/" ## Loads the smallest dataset triples by default. Only required to intitalize CSDataLoader
     test_dataset = CSDataLoader(test_data, args)
     soft_acc, hard_acc = 0.0, 0.0
@@ -115,7 +102,6 @@ def predict(kb, models, args):
         for i, model in enumerate(models):
             model.eval()
             scores = []
-            emb_dim = model.embedding_dim
             num_inds = model.num_inds
             embedding_model = torch.load(f"datasets/{kb}/Model_weights/SetTransformer_{args.kb_emb_model}_Emb_inducing_points{num_inds}.pt",
                                         map_location = torch.device("cpu"))
@@ -141,7 +127,6 @@ def predict(kb, models, args):
         return pred_sequence, targets
     else:
         models.eval()
-        emb_dim = models.embedding_dim
         num_inds = models.num_inds
         embedding_model = torch.load(f"datasets/{kb}/Model_weights/SetTransformer_{args.kb_emb_model}_Emb_inducing_points{num_inds}.pt",
                                     map_location = torch.device("cpu"))
@@ -158,27 +143,13 @@ def predict(kb, models, args):
         print(f"Average syntactic accuracy, Soft: {soft_acc/len(test_dataloader)}%, Hard: {hard_acc/len(test_dataloader)}%")
         return np.concatenate(preds, 0), np.concatenate(targets, 0)
 
-def get_ensemble_prediction(models, x1, x2):
-    for i,model in enumerate(models):
-        model.eval()
-        if i == 0:
-            _, scores = model(x1, x2)
-        else:
-            _, sc = model(x1, x2)
-            scores = scores + sc
-    scores = scores/len(models)
-    prediction = model.inv_vocab[scores.argmax(1)]
-    return prediction
-
-def synthesize_class_expressions(kb, num_inds, emb_dim, args):
+def synthesize_class_expressions(kb, num_inds, args):
     args.knowledge_base_path = "datasets/"+f"{kb}/{kb}.owl"
     if isinstance(num_inds, list):
         print(f"\n## Ensemble prediction ({'+'.join([f'SetTransformer_I{inds}' for inds in num_inds])})")
     
         models = [torch.load(f"datasets/{kb}/Model_weights/{args.kb_emb_model}_SetTransformer_inducing_points{inds}.pt",
                              map_location=torch.device("cpu")) for inds in num_inds]
-        #model = models[0] # Needed for vocabulary only, see map_to_token below
-        #model.eval()
         return predict(kb, models, args)
     else:
         print(f"\n## Single model prediction (SetTransformer_I{num_inds})")
@@ -188,7 +159,7 @@ def synthesize_class_expressions(kb, num_inds, emb_dim, args):
     
     
 
-def evaluate_nces(kb_name, num_inds, emb_dim, args, save_results=False, verbose=False):
+def evaluate_nces(kb_name, num_inds, args, save_results=False, verbose=False):
     print('#'*50)
     print('NCES evaluation on {} KB:'.format(kb_name))
     print('#'*50)
@@ -212,7 +183,7 @@ def evaluate_nces(kb_name, num_inds, emb_dim, args, save_results=False, verbose=
     for model_name in All_metrics.keys():
         num_inds = int(model_name.split("I")[-1])
         t0 = time.time()
-        predictions, targets = synthesize_class_expressions(kb_name, num_inds, emb_dim, args)
+        predictions, targets = synthesize_class_expressions(kb_name, num_inds, args)
         t1 = time.time()
         duration = (t1-t0)/len(predictions)
         for i, pb_str in enumerate(targets):
@@ -223,6 +194,7 @@ def evaluate_nces(kb_name, num_inds, emb_dim, args, save_results=False, verbose=
                 end_idx = 1
             pred = predictions[i][:end_idx]
             #print("Before parsing: ", pred.sum())
+            # In the following, try to repair an expression if one parenthesis is missing
             succeed = False
             if (pred=='(').sum() > (pred==')').sum():
                 for i in range(len(pred))[::-1]:
@@ -259,7 +231,7 @@ def evaluate_nces(kb_name, num_inds, emb_dim, args, save_results=False, verbose=
                 try:
                     prediction = dl_parser.parse_expression("".join(pred.tolist()))
                 except Exception:
-                    try:
+                    try: # Try extracting the closest class expression with syntax checker
                         pred = syntax_checker.correct(predictions[i].sum())
                         pred = list(syntax_checker.get_suggestions(pred))[-1]
                         prediction = syntax_checker.get_concept(pred)
@@ -273,12 +245,12 @@ def evaluate_nces(kb_name, num_inds, emb_dim, args, save_results=False, verbose=
             negative_examples = All_individuals-positive_examples
             try:
                 acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
-            except Exception as e:
+            except NotImplementedError as e:
                 print("Error on ", prediction)
                 print(e)
-                continue
-            #except Exception as err:
-            #    print(err)
+                prediction = syntax_checker.get_concept(['⊤'])
+                acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
+                
             if verbose:
                 print(f'Problem {i}, Target: {pb_str}, Prediction: {syntax_checker.renderer.render(prediction)}, Acc: {acc}, F1: {f1}')
                 print()
@@ -304,17 +276,17 @@ def evaluate_nces(kb_name, num_inds, emb_dim, args, save_results=False, verbose=
                                                                round(All_metrics[model_name]['f1']['std'][0], 2)))
         print()
         if save_results:
-            with open("datasets/"+kb_name+"/Results/NCES"+desc+".json", "w") as file:
+            with open("datasets/"+kb_name+f"/Results/NCES_{args.kb_emb_model}"+desc+".json", "w") as file:
                 json.dump(All_metrics, file, indent=3, ensure_ascii=False)
 
                 
-def evaluate_ensemble(kb_name, args, emb_dim, save_results=False, verbose=False):
+def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
     print('#'*50)
     print('NCES evaluation on {} KB:'.format(kb_name))
     print('#'*50)
-    All_metrics = {'+'.join(combine): defaultdict(lambda: defaultdict(list)) for combine in [["SetTransformer_I64", "SetTransformer_I128"], \
-                                        ["SetTransformer_I64", "SetTransformer_I192"], ["SetTransformer_I128", "SetTransformer_I192"],\
-                                        ["SetTransformer_I64", "SetTransformer_I128", "SetTransformer_I192"]]}
+    All_metrics = {'+'.join(combine): defaultdict(lambda: defaultdict(list)) for combine in [["SetTransformer_I32", "SetTransformer_I64"], \
+                                        ["SetTransformer_I32", "SetTransformer_I128"], ["SetTransformer_I64", "SetTransformer_I128"],\
+                                        ["SetTransformer_I32", "SetTransformer_I64", "SetTransformer_I128"]]}
     print()
     kb = KnowledgeBase(path=f"datasets/{kb_name}/{kb_name}.owl")
     namespace = kb.ontology()._onto.base_iri
@@ -331,7 +303,7 @@ def evaluate_ensemble(kb_name, args, emb_dim, save_results=False, verbose=False)
     for combine in All_metrics.keys():     
         t0 = time.time()
         num_inds = [int(model_name.split("I")[-1]) for model_name in combine.split("+")]
-        predictions, targets = synthesize_class_expressions(kb_name, num_inds, emb_dim, args) # kb_name, proj_dim, emb_dim, args
+        predictions, targets = synthesize_class_expressions(kb_name, num_inds, args)
         t1 = time.time()
         duration = (t1-t0)/len(predictions)
         for i, pb_str in enumerate(targets):
@@ -390,10 +362,11 @@ def evaluate_ensemble(kb_name, args, emb_dim, save_results=False, verbose=False)
             negative_examples = All_individuals-positive_examples
             try:
                 acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
-            except Exception as e:
+            except NotImplementedError as e:
                 print("Error on ", prediction)
                 print(e)
-                continue
+                prediction = syntax_checker.get_concept(['⊤'])
+                acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
             #acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
             if verbose:
                 print(f'Problem {i}, Target: {pb_str}, Prediction: {syntax_checker.renderer.render(prediction)}, Acc: {acc}, F1: {f1}')
@@ -421,5 +394,5 @@ def evaluate_ensemble(kb_name, args, emb_dim, save_results=False, verbose=False)
         print()
 
     if save_results:
-        with open(f"datasets/{kb_name}/Results/NCES_Ensemble.json", "w") as file:
+        with open(f"datasets/{kb_name}/Results/NCES_{args.kb_emb_model}_Ensemble.json", "w") as file:
             json.dump(All_metrics, file, indent=3, ensure_ascii=False)

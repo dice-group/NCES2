@@ -149,7 +149,7 @@ class Experiment:
     def map_to_token(self, idx_array):
         return self.cs.model.inv_vocab[idx_array]
     
-    def train(self, train_data, test_data, epochs=200, test=False, save_model = False, kb_emb_model="TransE",\
+    def train(self, train_data, test_data, epochs=200, test=False, save_model = False, kb_emb_model="ConEx",\
               optimizer = 'Adam', record_runtime=False, final=False):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         train_on_gpu = torch.cuda.is_available()
@@ -160,7 +160,7 @@ class Experiment:
         print()
         print("#"*100)
         print()
-        print("{} starts training on {} data set \n".format(self.cs.model.name, self.kwargs.knowledge_base_path.split("/")[-2]))
+        print("{} ({} inducing points) starts training on {} data set \n".format(self.cs.model.name, self.cs.model.num_inds, self.kwargs.knowledge_base_path.split("/")[-2]))
         print("#"*100, "\n")
         
         ## Make a copy of the model (initialization)

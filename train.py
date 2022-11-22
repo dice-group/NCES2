@@ -88,7 +88,6 @@ for kb in args.kbs:
     data_test_path = f"datasets/{kb}/Test_data/Data.json"
     with open(data_test_path, "r") as file:
         data_test = json.load(file)
-    data_train, data_test = list(data_train.items()), list(data_test.items())
     
     args.knowledge_base_path = f"datasets/{kb}/{kb}.owl"
     args.path_to_triples = f"datasets/{kb}/Triples/"
