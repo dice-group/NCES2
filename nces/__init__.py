@@ -38,10 +38,12 @@ class BaseConceptSynthesis:
             test_data = json.load(file_test)
         values = set()
         for ce in train_data:
+            ce = ce[0]
             if '[' in ce:
                 for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
                     values.add(val.strip(']'))
         for ce in test_data:
+            ce = ce[0]
             if '[' in ce:
                 for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
                     values.add(val.strip(']'))

@@ -171,7 +171,7 @@ class Experiment:
         triple_data_idxs = self.get_data_idxs(self.kb_embedding_data.data_triples)
         head_to_relation_batch = list(DataLoader(
             HeadAndRelationBatchLoader(er_vocab=self.get_er_vocab(triple_data_idxs), num_e=len(self.kb_embedding_data.entities)),
-            batch_size=3*self.batch_size, num_workers=self.num_workers, shuffle=True))
+            batch_size=2*self.batch_size, num_workers=self.num_workers, shuffle=True))
         
         ## Get combined model size
         size1, size2 = self.show_num_learnable_params(synthesizer, embedding_model)
@@ -258,7 +258,7 @@ class Experiment:
             with open(base_path+f"datasets/{self.kb}/Runtime/"+"Runtime_"+desc1+f"_inducing_points{synthesizer.num_inds}.json", "w") as file:
                 json.dump(runtime_info, file, indent=3)
                 
-        results_dict = dict()
+        results_dict = {"Synthesizer size": size1, "Embedding model size": size2}
         if test:
             test_dataset = CSDataLoader(test_data, self.kwargs)
             test_dataset.load_embeddings(embedding_model)
@@ -280,7 +280,7 @@ class Experiment:
             print("Test for {}:".format(synthesizer.name))
             print("Test soft accuracy: ", te_soft_acc)
             print("Test hard accuracy: ", te_hard_acc)
-            results_dict.update({"Synthesizer size": size1, "Embedding model size": size2, "Test soft acc":te_soft_acc, "Test hard acc": te_hard_acc})
+            results_dict.update({"Test soft acc":te_soft_acc, "Test hard acc": te_hard_acc})
         print("Train soft accuracy: {} ... Train hard accuracy: {}".format(max(Train_acc['soft']), max(Train_acc['hard'])))
         print()
         results_dict.update({"Train max soft acc": max(Train_acc['soft']), "Train max hard acc": max(Train_acc['hard']), "Train min loss": min(Train_loss)})
