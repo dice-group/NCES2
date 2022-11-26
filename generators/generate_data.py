@@ -20,14 +20,12 @@ class KBToDataForConceptSynthesis:
    Hence, we export each concept and its examples (eventually positive and negative examples) into json files.  
     """
 
-    def __init__(self, path, rho_name="ExpressRefinement", depth=5, max_child_length=25, refinement_expressivity=0.6, downsample_refinements=True, k=5, num_rand_samples=150, min_num_pos_examples=1, max_num_pos_examples=2000):
+    def __init__(self, path, rho_name="ExpressRefinement", depth=5, max_child_length=25, refinement_expressivity=0.6, downsample_refinements=True, k=5, num_rand_samples=150):
         self.path = path
         self.dl_syntax_renderer = DLSyntaxObjectRenderer()
         self.kb = KnowledgeBase(path=path)
         self.total_num_inds = self.kb.individuals_count()
         self.num_examples = min(self.total_num_inds//2, 1000)
-        self.min_num_pos_examples = min_num_pos_examples
-        self.max_num_pos_examples = max_num_pos_examples
         atomic_concepts: Final = frozenset(self.kb.ontology().classes_in_signature())
         self.atomic_concept_names: Final = frozenset([self.dl_syntax_renderer.render(a) for a in atomic_concepts])
         rho = ExpressRefinement(knowledge_base=self.kb, max_child_length=max_child_length, k=k, downsample = downsample_refinements, expressivity=refinement_expressivity) if \
@@ -47,13 +45,7 @@ class KBToDataForConceptSynthesis:
         non_redundancy_hash_map = dict()
         show_some_length = True
         for concept in tqdm(sorted(Concepts, key=lambda c: self.kb.concept_len(c))[::-1], desc="Filtering process..."):
-            #if not self.kb.individuals_set(concept) in non_redundancy_hash_map and self.min_num_pos_examples <=  <= self.max_num_pos_examples:
-            #if self.kb.individuals_count(concept) < self.total_num_inds:
             non_redundancy_hash_map[self.kb.individuals_set(concept)] = concept
-            #else: continue
-            #if self.kb.concept_len(concept) >= 15 and show_some_length:
-            #    print("A long concept found: ", self.kb.concept_len(concept))
-            #    show_some_length = False
         print("Concepts generation done!\n")
         print("Number of atomic concepts: ", len(self.atomic_concept_names))
         print("Longest concept length: ", max({l for l in [self.kb.concept_len(c) for c in non_redundancy_hash_map.values()]}), "\n")
@@ -168,7 +160,6 @@ parser.add_argument('--num_rand_samples', type=int, default=100, help='The numbe
 parser.add_argument('--depth', type=int, default=3, help='The depth of refinements')
 parser.add_argument('--k', type=int, default=10, help='The number of fillers to sample')
 parser.add_argument('--max_child_len', type=int, default=15, help='Maximum child length')
-parser.add_argument('--max_num_pos_examples', type=int, default=100000, help='Maximum number of positive examples')
 parser.add_argument('--refinement_expressivity', type=float, default=0.5)
 parser.add_argument('--rho', type=str, default='ExpressRefinement', choices=['ExpressRefinement', 'ModifiedCELOERefinement'], help='Refinement operator to use')
 
@@ -177,7 +168,7 @@ args = parser.parse_args()
 for kb in args.kbs:
     with open(f'../datasets/{kb}/data_generation_settings.json', "w") as setting:
         json.dump(vars(args), setting)
-    DataGen = KBToDataForConceptSynthesis(path=f'../datasets/{kb}/{kb}.owl', rho_name=args.rho, depth=args.depth, k=args.k, max_child_length=args.max_child_len, refinement_expressivity=args.refinement_expressivity, downsample_refinements=True, num_rand_samples=args.num_rand_samples, min_num_pos_examples=1, max_num_pos_examples=args.max_num_pos_examples)
+    DataGen = KBToDataForConceptSynthesis(path=f'../datasets/{kb}/{kb}.owl', rho_name=args.rho, depth=args.depth, k=args.k, max_child_length=args.max_child_len, refinement_expressivity=args.refinement_expressivity, downsample_refinements=True, num_rand_samples=args.num_rand_samples)
     data_train, data_test = DataGen.generate_descriptions()
     data_train, data_test = DataGen.reinforced_example_sampling(data_train, data_test)
     DataGen.save_data(data_train, data_test)
