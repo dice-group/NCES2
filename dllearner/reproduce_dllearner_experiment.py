@@ -27,8 +27,6 @@ if __name__ == '__main__':
         lp_path = currentpath.split("dllearner")[0]+f"datasets/{kb}/Test_data/Data.json"
         with open(lp_path,"r") as lp_file:
             data_test = json.load(lp_file)
-        data_test = list(data_test.items())
-
         kb_path = currentpath.split("dllearner")[0]+f'datasets/{kb}/{kb}.owl'
         # To download DL-learner,  https://github.com/SmartDataAnalytics/DL-Learner/releases.
         dl_learner_binary_path = currentpath.split("dllearner")[0]+'dllearner-1.4.0/'

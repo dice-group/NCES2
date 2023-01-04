@@ -12,7 +12,6 @@ def create_config(kb):
     lp_path = base_path+'datasets/'+kb+'/Test_data/Data.json'
     with open(lp_path,"r") as lp_file:
         data_test = json.load(lp_file)
-    data_test = list(data_test.items())
     kb_file = base_path+'datasets/'+kb+'/'+kb+'.owl'
     KB = KnowledgeBase(path=kb_file)
     prefix = list(KB.individuals())[0].get_iri().as_str().split('#')[0]+'#'

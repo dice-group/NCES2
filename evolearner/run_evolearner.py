@@ -58,7 +58,7 @@ if __name__ == '__main__':
         All_individuals = set(kb.individuals())
         Result_dict = {'F-measure': [], 'Accuracy': [], 'Runtime': [], 'Prediction': [], 'Learned Concept': []}
         Avg_result = defaultdict(lambda: defaultdict(float))
-        for str_target_concept, examples in tqdm(lps.items(), desc=f'Learning {len(lps)} problems'):
+        for str_target_concept, examples in tqdm(lps, desc=f'Learning {len(lps)} problems'):
             model = EvoLearner(knowledge_base=kb, max_runtime=300)
             p = [kb_prefix+ind for ind in examples['positive examples']] # encode with urllib as required by dllearner ontology manager
             n = [kb_prefix+ind for ind in examples['negative examples']]

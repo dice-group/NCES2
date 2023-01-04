@@ -53,16 +53,13 @@ def collate_batch(batch):
     return pos_emb_list, neg_emb_list
 
 def predict(kb, models, args):
-    test_data = []
-    for lp_type in ['real_values', 'boolean_values', 'inverse_property_values', 'cardinality_restrictions']:
-        if not os.path.isfile(f"complex_lps/{kb}/{lp_type}.json"): continue
-        with open(f"complex_lps/{kb}/{lp_type}.json") as file:
-            test_data += json.load(file)
-    print("\n*** Number of learning problems: ", len(test_data), "***\n")
-    args.path_to_triples = f"datasets/{kb}/Triples/"
+    data_test_path = f"datasets/{kb}/Test_data/Data_robust.json"
+    with open(data_test_path, "r") as file:
+        test_data = json.load(file)
+    args.path_to_triples = f"datasets/{kb}/Triples/" 
     test_dataset = CSDataLoaderInference(test_data, args)
-    preds = []
     targets = [ce[0] for ce in test_data]
+    preds = []
     if isinstance(models, list):
         for i, model in enumerate(models):
             model.eval()
@@ -112,9 +109,10 @@ def synthesize_class_expressions(kb, num_inds, args):
     
 
 def evaluate_nces(kb_name, num_inds, args, save_results=False, verbose=False):
-    print('#'*100)
-    print('NCES evaluation on complex learning problems for {} KB:'.format(kb_name))
-    print('#'*100)
+    print('#'*50)
+    print('NCES evaluation on {} KB:'.format(kb_name))
+    print('#'*50)
+    desc = "_robustness"
     All_metrics = {m: defaultdict(lambda: defaultdict(list)) for m in [f"SetTransformer_I{inds}" for inds in num_inds]}
     print()
     kb = KnowledgeBase(path=f"datasets/{kb_name}/{kb_name}.owl")
@@ -128,9 +126,9 @@ def evaluate_nces(kb_name, num_inds, args, save_results=False, verbose=False):
     dl_parser = DLSyntaxParser(namespace = namespace)
     All_individuals = set(kb.individuals())
     for model_name in All_metrics.keys():
-        inds = int(model_name.split("I")[-1])
+        num_inds = int(model_name.split("I")[-1])
         t0 = time.time()
-        predictions, targets = synthesize_class_expressions(kb_name, inds, args)
+        predictions, targets = synthesize_class_expressions(kb_name, num_inds, args)
         t1 = time.time()
         duration = (t1-t0)/len(predictions)
         for i, pb_str in enumerate(targets):
@@ -157,7 +155,7 @@ def evaluate_nces(kb_name, num_inds, args, save_results=False, verbose=False):
                         pred = list(syntax_checker.get_suggestions(pred))[-1]
                         prediction = syntax_checker.get_concept(pred)
                     except Exception:
-                        prediction = None
+                        print(f"Could not understand expression {pred}")
                         
             elif (pred==')').sum() > (pred=='(').sum():
                 for i in range(len(pred)):
@@ -173,7 +171,7 @@ def evaluate_nces(kb_name, num_inds, args, save_results=False, verbose=False):
                         pred = list(syntax_checker.get_suggestions(pred))[-1]
                         prediction = syntax_checker.get_concept(pred)
                     except Exception:
-                        prediction = None
+                        print(f"Could not understand expression {pred}")
             else:
                 try:
                     prediction = dl_parser.parse_expression("".join(pred.tolist()))
@@ -183,20 +181,17 @@ def evaluate_nces(kb_name, num_inds, args, save_results=False, verbose=False):
                         pred = list(syntax_checker.get_suggestions(pred))[-1]
                         prediction = syntax_checker.get_concept(pred)
                     except Exception:
-                        prediction = None
+                        print(f"Could not understand expression {pred}")
             if prediction is None:
                 prediction = syntax_checker.get_concept(['⊤'])
-            try:
-                target_expression = dl_parser.parse_expression(pb_str) # The target class expression
-            except:
-                continue
+            target_expression = dl_parser.parse_expression(pb_str) # The target class expression
             #try:
-            positive_examples = {ind.get_iri().as_str().split("/")[-1] for ind in kb.individuals(target_expression)}
+            positive_examples = set(kb.individuals(target_expression))
             negative_examples = All_individuals-positive_examples
             try:
                 acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
             except Exception as e:
-                print("Error on ", prediction)
+                print("Parsing error on ", prediction)
                 print(e)
                 prediction = syntax_checker.get_concept(['⊤'])
                 acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
@@ -213,55 +208,27 @@ def evaluate_nces(kb_name, num_inds, args, save_results=False, verbose=False):
             All_metrics[model_name]['f1']['values'].append(f1)
             All_metrics[model_name]['time']['values'].append(duration)
             
+        for metric in All_metrics[model_name]:
+            if metric != 'prediction':
+                All_metrics[model_name][metric]['mean'] = [np.mean(All_metrics[model_name][metric]['values'])]
+                All_metrics[model_name][metric]['std'] = [np.std(All_metrics[model_name][metric]['values'])]
         
-
-#        for metric in All_metrics[model_name]:
-#            if metric != 'prediction':
-#                All_metrics[model_name][metric]['mean'] = [np.mean(All_metrics[model_name][metric]['values'])]
-#                All_metrics[model_name][metric]['std'] = [np.std(All_metrics[model_name][metric]['values'])]
-#        
-#        print(model_name+' Speed: {}s +- {} / lp'.format(round(All_metrics[model_name]['time']['mean'][0], 2),\
-#                                                               round(All_metrics[model_name]['time']['std'][0], 2)))
-#        print(model_name+' Avg Acc: {}% +- {} / lp'.format(round(All_metrics[model_name]['acc']['mean'][0], 2),\
-#                                                               round(All_metrics[model_name]['acc']['std'][0], 2)))
-#        print(model_name+' Avg F1: {}% +- {} / lp'.format(round(All_metrics[model_name]['f1']['mean'][0], 2),\
-#                                                               round(All_metrics[model_name]['f1']['std'][0], 2)))
-#        print()
-#        
-    current_iter = 0
-    for lp_type in ['real_values', 'boolean_values', 'inverse_property_values', 'cardinality_restrictions']:
-        if not os.path.isfile(f"complex_lps/{kb_name}/{lp_type}.json"): continue
-        all_metrics = {m: defaultdict(lambda: defaultdict(list)) for m in [f"SetTransformer_I{inds}" for inds in num_inds]}
-        with open(f"complex_lps/{kb_name}/{lp_type}.json") as file:
-            num_lps = len(json.load(file))
-        for key1 in all_metrics:
-            for key2 in All_metrics[key1]:
-                for key3 in All_metrics[key1][key2]:
-                    all_metrics[key1][key2][key3] = All_metrics[key1][key2][key3][current_iter:current_iter+num_lps]
-                    if key2 != 'prediction':
-                        all_metrics[key1][key2]['mean'] = [np.mean(all_metrics[key1][key2][key3])]
-                        all_metrics[key1][key2]['std'] = [np.std(all_metrics[key1][key2][key3])]
-            print(f'\n LPs of type {lp_type}')
-            print(key1+' Speed: {}s +- {} / lp'.format(round(all_metrics[key1]['time']['mean'][0], 2),\
-                                                                   round(all_metrics[key1]['time']['std'][0], 2)))
-            print(key1+' Avg Acc: {}% +- {} / lp'.format(round(all_metrics[key1]['acc']['mean'][0], 2),\
-                                                                   round(all_metrics[key1]['acc']['std'][0], 2)))
-            print(key1+' Avg F1: {}% +- {} / lp'.format(round(all_metrics[key1]['f1']['mean'][0], 2),\
-                                                        round(all_metrics[key1]['f1']['std'][0], 2)))
-            print()
-        current_iter += num_lps
+        print(model_name+' Speed: {}s +- {} / lp'.format(round(All_metrics[model_name]['time']['mean'][0], 2),\
+                                                               round(All_metrics[model_name]['time']['std'][0], 2)))
+        print(model_name+' Avg Acc: {}% +- {} / lp'.format(round(All_metrics[model_name]['acc']['mean'][0], 2),\
+                                                               round(All_metrics[model_name]['acc']['std'][0], 2)))
+        print(model_name+' Avg F1: {}% +- {} / lp'.format(round(All_metrics[model_name]['f1']['mean'][0], 2),\
+                                                               round(All_metrics[model_name]['f1']['std'][0], 2)))
+        print()
         if save_results:
-            with open("datasets/"+kb_name+f"/Results/NCES_{args.kb_emb_model}_{lp_type}.json", "w") as file:
-                json.dump(all_metrics, file, indent=3, ensure_ascii=False)
-    #if save_results:
-    #    with open("datasets/"+kb_name+f"/Results/NCES_{args.kb_emb_model}_{lp_type}"+".json", "w") as file:
-    #        json.dump(All_metrics, file, indent=3, ensure_ascii=False)
+            with open("datasets/"+kb_name+f"/Results/NCES_{args.kb_emb_model}"+desc+".json", "w") as file:
+                json.dump(All_metrics, file, indent=3, ensure_ascii=False)
 
                 
 def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
-    print('#'*100)
-    print('NCES ensemble evaluation on complex learning problems of {} KB:'.format(kb_name))
-    print('#'*100)
+    print('#'*50)
+    print('NCES evaluation on {} KB:'.format(kb_name))
+    print('#'*50)
     All_metrics = {'+'.join(combine): defaultdict(lambda: defaultdict(list)) for combine in [["SetTransformer_I32", "SetTransformer_I64"], \
                                         ["SetTransformer_I32", "SetTransformer_I128"], ["SetTransformer_I64", "SetTransformer_I128"],\
                                         ["SetTransformer_I32", "SetTransformer_I64", "SetTransformer_I128"]]}
@@ -278,8 +245,8 @@ def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
     All_individuals = set(kb.individuals())
     for combine in All_metrics.keys():     
         t0 = time.time()
-        inds = [int(model_name.split("I")[-1]) for model_name in combine.split("+")]
-        predictions, targets = synthesize_class_expressions(kb_name, inds, args)
+        num_inds = [int(model_name.split("I")[-1]) for model_name in combine.split("+")]
+        predictions, targets = synthesize_class_expressions(kb_name, num_inds, args)
         t1 = time.time()
         duration = (t1-t0)/len(predictions)
         for i, pb_str in enumerate(targets):
@@ -305,7 +272,7 @@ def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
                         pred = list(syntax_checker.get_suggestions(pred))[-1]
                         prediction = syntax_checker.get_concept(pred)
                     except Exception:
-                        prediction = None
+                        print(f"Could not understand expression {pred}")
             elif (pred==')').sum() > (pred=='(').sum():
                 for i in range(len(pred)):
                     try:
@@ -320,7 +287,7 @@ def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
                         pred = list(syntax_checker.get_suggestions(pred))[-1]
                         prediction = syntax_checker.get_concept(pred)
                     except Exception:
-                        prediction = None
+                        print(f"Could not understand expression {pred}")
             else:
                 try:
                     prediction = dl_parser.parse_expression("".join(pred.tolist()))
@@ -330,23 +297,19 @@ def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
                         pred = list(syntax_checker.get_suggestions(pred))[-1]
                         prediction = syntax_checker.get_concept(pred)
                     except Exception:
-                        prediction = None
+                        print(f"Could not understand expression {pred}")
             if prediction is None:
                 prediction = syntax_checker.get_concept(['⊤'])
-            try:
-                target_expression = dl_parser.parse_expression(pb_str) # The target class expression
-            except:
-                continue
-            positive_examples = {ind.get_iri().as_str().split("/")[-1] for ind in kb.individuals(target_expression)}
+            target_expression = dl_parser.parse_expression(pb_str) # The target class expression
+            positive_examples = set(kb.individuals(target_expression))
             negative_examples = All_individuals-positive_examples
             try:
                 acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
             except Exception as e:
-                print("Error on ", prediction)
+                print("Parsing error on ", prediction)
                 print(e)
                 prediction = syntax_checker.get_concept(['⊤'])
                 acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
-            #acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
             if verbose:
                 print(f'Problem {i}, Target: {pb_str}, Prediction: {syntax_checker.renderer.render(prediction)}, Acc: {acc}, F1: {f1}')
                 print()
@@ -357,50 +320,21 @@ def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
                 All_metrics[combine]['prediction']['values'].append("Unknown")
             All_metrics[combine]['f1']['values'].append(f1)
             All_metrics[combine]['time']['values'].append(duration)
-                                                        
-                                                        
-    current_iter = 0   
-    for lp_type in ['real_values', 'boolean_values', 'inverse_property_values', 'cardinality_restrictions']:
-        if not os.path.isfile(f"complex_lps/{kb_name}/{lp_type}.json"): continue
-        all_metrics = {'+'.join(combine): defaultdict(lambda: defaultdict(list)) for combine in [["SetTransformer_I32", "SetTransformer_I64"], \
-                                        ["SetTransformer_I32", "SetTransformer_I128"], ["SetTransformer_I64", "SetTransformer_I128"],\
-                                        ["SetTransformer_I32", "SetTransformer_I64", "SetTransformer_I128"]]}
-        with open(f"complex_lps/{kb_name}/{lp_type}.json") as file:
-            num_lps = len(json.load(file))
-        for key1 in all_metrics:
-            for key2 in All_metrics[key1]:
-                for key3 in All_metrics[key1][key2]:
-                    all_metrics[key1][key2][key3] = All_metrics[key1][key2][key3][current_iter:current_iter+num_lps]
-                    if key2 != 'prediction':
-                        all_metrics[key1][key2]['mean'] = [np.mean(all_metrics[key1][key2][key3])]
-                        all_metrics[key1][key2]['std'] = [np.std(all_metrics[key1][key2][key3])]
-            print(f'\n LPs of type {lp_type}')
-            print(key1+' Speed: {}s +- {} / lp'.format(round(all_metrics[key1]['time']['mean'][0], 2),\
-                                                                   round(all_metrics[key1]['time']['std'][0], 2)))
-            print(key1+' Avg Acc: {}% +- {} / lp'.format(round(all_metrics[key1]['acc']['mean'][0], 2),\
-                                                                   round(all_metrics[key1]['acc']['std'][0], 2)))
-            print(key1+' Avg F1: {}% +- {} / lp'.format(round(all_metrics[key1]['f1']['mean'][0], 2),\
-                                                        round(all_metrics[key1]['f1']['std'][0], 2)))
-            print()
-        current_iter += num_lps
-        if save_results:
-            with open("datasets/"+kb_name+f"/Results/NCES_{args.kb_emb_model}_Ensemble_{lp_type}.json", "w") as file:
-                json.dump(all_metrics, file, indent=3, ensure_ascii=False)
 
-        #for metric in All_metrics[combine]:
-        #    if metric != 'prediction':
-        #        All_metrics[combine][metric]['mean'] = [np.mean(All_metrics[combine][metric]['values'])]
-        #        All_metrics[combine][metric]['std'] = [np.std(All_metrics[combine][metric]['values'])]
-#
-        #print(combine+' Speed: {}s +- {} / lp'.format(round(All_metrics[combine]['time']['mean'][0], 2),\
-        #                                                       round(All_metrics[combine]['time']['std'][0], 2)))
-        #print(combine+' Avg Acc: {}% +- {} / lp'.format(round(All_metrics[combine]['acc']['mean'][0], 2),\
-        #                                                       round(All_metrics[combine]['acc']['std'][0], 2)))
-        #print(combine+' Avg F1: {}% +- {} / lp'.format(round(All_metrics[combine]['f1']['mean'][0], 2),\
-        #                                                       round(All_metrics[combine]['f1']['std'][0], 2)))
-#
-        #print()
-#
-    #if save_results:
-    #    with open(f"datasets/{kb_name}/Results/NCES_{args.kb_emb_model}_Ensemble_{lp_type}.json", "w") as file:
-    #        json.dump(All_metrics, file, indent=3, ensure_ascii=False)
+        for metric in All_metrics[combine]:
+            if metric != 'prediction':
+                All_metrics[combine][metric]['mean'] = [np.mean(All_metrics[combine][metric]['values'])]
+                All_metrics[combine][metric]['std'] = [np.std(All_metrics[combine][metric]['values'])]
+
+        print(combine+' Speed: {}s +- {} / lp'.format(round(All_metrics[combine]['time']['mean'][0], 2),\
+                                                               round(All_metrics[combine]['time']['std'][0], 2)))
+        print(combine+' Avg Acc: {}% +- {} / lp'.format(round(All_metrics[combine]['acc']['mean'][0], 2),\
+                                                               round(All_metrics[combine]['acc']['std'][0], 2)))
+        print(combine+' Avg F1: {}% +- {} / lp'.format(round(All_metrics[combine]['f1']['mean'][0], 2),\
+                                                               round(All_metrics[combine]['f1']['std'][0], 2)))
+
+        print()
+
+    if save_results:
+        with open(f"datasets/{kb_name}/Results/NCES_{args.kb_emb_model}_Ensemble_robustness.json", "w") as file:
+            json.dump(All_metrics, file, indent=3, ensure_ascii=False)

@@ -28,7 +28,7 @@ class KBToDataForConceptSynthesis:
         self.num_examples = min(self.total_num_inds//2, 1000)
         atomic_concepts: Final = frozenset(self.kb.ontology().classes_in_signature())
         self.atomic_concept_names: Final = frozenset([self.dl_syntax_renderer.render(a) for a in atomic_concepts])
-        rho = ExpressRefinement(knowledge_base=self.kb, max_child_length=max_child_length, k=k, downsample = downsample_refinements, expressivity=refinement_expressivity) if \
+        rho = ExpressRefinement(knowledge_base=self.kb, max_child_length=max_child_length, sample_fillers_count=k, downsample=downsample_refinements, expressivity=refinement_expressivity) if \
         rho_name == "ExpressRefinement" else ModifiedCELOERefinement(knowledge_base=self.kb)
         self.lp_gen = ConceptDescriptionGenerator(knowledge_base=self.kb, refinement_operator=rho, depth=depth, num_rand_samples=num_rand_samples)
 
@@ -91,7 +91,8 @@ class KBToDataForConceptSynthesis:
             pos = [ind.get_iri().as_str().split("/")[-1] for ind in pos]
             neg = [ind.get_iri().as_str().split("/")[-1] for ind in neg]
             num_pos_ex, num_neg_ex = self.find_sampling_sizes(pos, neg)
-            if num_pos_ex * num_neg_ex == 0: continue # Extreme cases where there are no positive exaples or negative examples
+            if num_pos_ex * num_neg_ex == 0:
+                continue # Extreme cases where there are no positive exaples or negative examples
             Pos, Neg = sample(pos, neg, num_pos_ex, num_neg_ex)
             for p, n in zip(Pos, Neg):
                 final_data_train.append([concept_name, {'positive examples': p, 'negative examples': n, 'length': concept_length}])
