@@ -25,7 +25,7 @@ class BaseConceptSynthesis:
         quantified_restriction_values = [str(i) for i in range(1,12)]
         data_values = self.add_data_values(kwargs.knowledge_base_path)
         vocab = vocab + data_values + quantified_restriction_values
-        vocab = sorted(vocab) + ['PAD']
+        vocab = sorted(set(vocab)) + ['PAD']
         self.inv_vocab = vocab
         self.vocab = {vocab[i]:i for i in range(len(vocab))} #dict(map(reversed, enumerate(vocab)))
         self.max_length = kwargs.max_length

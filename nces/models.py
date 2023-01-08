@@ -28,7 +28,7 @@ class ConceptLearner_LSTM(nn.Module):
         quantified_restriction_values = [str(i) for i in range(1,12)]
         data_values = self.add_data_values(kwargs.knowledge_base_path)
         vocab = vocab + data_values + quantified_restriction_values
-        vocab = sorted(vocab) + ['PAD']
+        vocab = sorted(set(vocab)) + ['PAD']
         print("Vocabulary size: ", len(vocab))
         
         self.input_size = kwargs.input_size
@@ -97,7 +97,7 @@ class ConceptLearner_GRU(nn.Module):
         quantified_restriction_values = [str(i) for i in range(1,12)]
         data_values = self.add_data_values(kwargs.knowledge_base_path)
         vocab = vocab + data_values + quantified_restriction_values
-        vocab = sorted(vocab) + ['PAD']
+        vocab = sorted(set(vocab)) + ['PAD']
         print("Vocabulary size: ", len(vocab))
         
         self.input_size = kwargs.input_size
@@ -165,7 +165,7 @@ class SetTransformer(nn.Module):
         quantified_restriction_values = [str(i) for i in range(1,12)]
         data_values = self.add_data_values(kwargs.knowledge_base_path)
         vocab = vocab + data_values + quantified_restriction_values
-        vocab = sorted(vocab) + ['PAD']
+        vocab = sorted(set(vocab)) + ['PAD']
         print("Vocabulary size: ", len(vocab))
         
         self.input_size = kwargs.input_size
