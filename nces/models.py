@@ -24,9 +24,9 @@ class ConceptLearner_LSTM(nn.Module):
                      [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
         vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
                                                     '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
-                                                    'double', 'integer', 'xsd']
+                                                    'double', 'integer', 'date', 'xsd']
         quantified_restriction_values = [str(i) for i in range(1,12)]
-        data_values = self.get_data_property_values(kwargs.knowledge_base_path)
+        data_values = self.add_data_values(kwargs.knowledge_base_path)
         vocab = vocab + data_values + quantified_restriction_values
         vocab = sorted(vocab) + ['PAD']
         print("Vocabulary size: ", len(vocab))
@@ -45,23 +45,18 @@ class ConceptLearner_LSTM(nn.Module):
         self.fc2 = nn.Linear(self.proj_dim, self.proj_dim)
         self.fc3 = nn.Linear(self.proj_dim, len(self.vocab)*self.max_len)
         
-    def get_data_property_values(self, path):
+    def add_data_values(self, path):
         print("\n*** Finding relevant data values ***")
         with open(path[:path.rfind("/")+1]+"Train_data/Data.json") as file_train:
             train_data = json.load(file_train)
         with open(path[:path.rfind("/")+1]+"Test_data/Data.json") as file_test:
             test_data = json.load(file_test)
         values = set()
-        for ce in train_data:
+        for ce in train_data+test_data:
             ce = ce[0]
             if '[' in ce:
-                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
-                    values.add(val.strip(']'))
-        for ce in test_data:
-            ce = ce[0]
-            if '[' in ce:
-                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
-                    values.add(val.strip(']'))
+                for val in re.findall("\[(.*?)\]", ce):
+                    values.add(val.split(' ')[-1])
         print("*** Done! ***\n")
         print("Added values: ", values)
         return list(values)
@@ -97,10 +92,10 @@ class ConceptLearner_GRU(nn.Module):
                      [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
         vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
                                                     '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
-                                                    'double', 'integer', 'xsd']
+                                                    'double', 'integer', 'date', 'xsd']
         # 'string', 'boolean', 'float', 'decimal', 'dateTime', 'anyURI'
         quantified_restriction_values = [str(i) for i in range(1,12)]
-        data_values = self.get_data_property_values(kwargs.knowledge_base_path)
+        data_values = self.add_data_values(kwargs.knowledge_base_path)
         vocab = vocab + data_values + quantified_restriction_values
         vocab = sorted(vocab) + ['PAD']
         print("Vocabulary size: ", len(vocab))
@@ -119,23 +114,18 @@ class ConceptLearner_GRU(nn.Module):
         self.fc2 = nn.Linear(self.proj_dim, self.proj_dim)
         self.fc3 = nn.Linear(self.proj_dim, len(self.vocab)*self.max_len)
         
-    def get_data_property_values(self, path):
+    def add_data_values(self, path):
         print("\n*** Finding relevant data values ***")
         with open(path[:path.rfind("/")+1]+"Train_data/Data.json") as file_train:
             train_data = json.load(file_train)
         with open(path[:path.rfind("/")+1]+"Test_data/Data.json") as file_test:
             test_data = json.load(file_test)
         values = set()
-        for ce in train_data:
+        for ce in train_data+test_data:
             ce = ce[0]
             if '[' in ce:
-                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
-                    values.add(val.strip(']'))
-        for ce in test_data:
-            ce = ce[0]
-            if '[' in ce:
-                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
-                    values.add(val.strip(']'))
+                for val in re.findall("\[(.*?)\]", ce):
+                    values.add(val.split(' ')[-1])
         print("*** Done! ***\n")
         print("Added values: ", values)
         return list(values)
@@ -171,9 +161,9 @@ class SetTransformer(nn.Module):
                      [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
         vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
                                                     '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
-                                                    'double', 'integer', 'xsd']
+                                                    'double', 'integer', 'date', 'xsd']
         quantified_restriction_values = [str(i) for i in range(1,12)]
-        data_values = self.get_data_property_values(kwargs.knowledge_base_path)
+        data_values = self.add_data_values(kwargs.knowledge_base_path)
         vocab = vocab + data_values + quantified_restriction_values
         vocab = sorted(vocab) + ['PAD']
         print("Vocabulary size: ", len(vocab))
@@ -197,23 +187,18 @@ class SetTransformer(nn.Module):
                 PMA(self.proj_dim, self.num_heads, self.num_seeds, ln=self.ln),
                 nn.Linear(self.proj_dim, len(self.vocab)*self.max_len))
         
-    def get_data_property_values(self, path):
+    def add_data_values(self, path):
         print("\n*** Finding relevant data values ***")
         with open(path[:path.rfind("/")+1]+"Train_data/Data.json") as file_train:
             train_data = json.load(file_train)
         with open(path[:path.rfind("/")+1]+"Test_data/Data.json") as file_test:
             test_data = json.load(file_test)
         values = set()
-        for ce in train_data:
+        for ce in train_data+test_data:
             ce = ce[0]
             if '[' in ce:
-                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
-                    values.add(val.strip(']'))
-        for ce in test_data:
-            ce = ce[0]
-            if '[' in ce:
-                for val in re.findall(r"\[*-?\d*\.\d+]|\[*-?\d*]", ce):
-                    values.add(val.strip(']'))
+                for val in re.findall("\[(.*?)\]", ce):
+                    values.add(val.split(' ')[-1])
         print("*** Done! ***\n")
         print("Added values: ", values)
         return list(values)

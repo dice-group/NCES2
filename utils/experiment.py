@@ -18,6 +18,7 @@ from sklearn.metrics import f1_score, accuracy_score
 import time
 import random
 from argparse import Namespace
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 class Experiment:
     
@@ -218,6 +219,12 @@ class Experiment:
                 if train_on_gpu:
                     x1, x2, labels = x1.cuda(), x2.cuda(), labels.cuda()
                 pred_sequence, scores = synthesizer(x1, x2)
+                print(labels)
+                print(scores)
+                for lab in labels:
+                    for l in lab:
+                        if not 0 <= l < len(synthesizer.vocab):
+                            print(l)
                 cs_loss = synthesizer.loss(scores, labels)
                 loss = 0.5 * (tc_loss + cs_loss)
                 s_acc, h_acc = self.compute_accuracy(pred_sequence, target_sequence)
