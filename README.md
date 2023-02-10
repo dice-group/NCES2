@@ -1,30 +1,32 @@
-# NCES
-Learning class expressions in expressive DLs using neural networks
+# NCES2
+Neural Class Expression Synthesis in ALCHIQ(D)
 
-
-![ncel-dlo](nces.jpg)
 
 ## Installation
-
-Clone this repository:
-```
-https://github.com/fosterreproducibleresearch/NCES2.git
-``` 
 
 Make sure Anaconda3 is installed in your working environment then run the following to install all required librairies for NCES2:
 ```
 conda env create -f environment.yml
 ```
-A conda environment (nces) will be created. Next activate the environment:
-``` conda activate nces```
 
-Download datasets from [drive](https://drive.google.com/file/d/1SJ2vuCjflJld8EEN4ay7Ock_W3F_zgCB/view?usp=sharing). Extract the zip file into NCES2/ and if necessary, rename the folder as datasets
+A conda environment (nces2) will be created. Next activate the environment:
 
-To run search based algorithms CELOE, ELTL and ECII, install Java 8+ and Maven 3.6.3+
+```
+conda activate nces2 
+```
 
-Dowload DL-Learner-1.4.0 from [github](https://github.com/SmartDataAnalytics/DL-Learner/releases) and extract it into the directory NCES2
+Also install Ontolearn: 
 
-Clone DL-Foil from [bitbucket](https://bitbucket.org/grizzo001/dl-foil.git) into NCES2. Make sure the script ` generate_dlfoil_config_all_kbs.py` is copied into dl-foil. This file can be found at [prepare_file](https://github.com/fosterreproducibleresearch/NCES2/blob/main/dl-foil/generate_dlfoil_config_all_kbs.py).
+``` 
+git clone https://github.com/dice-group/Ontolearn.git
+```
+then
+
+``` 
+cd Ontolearn, python -c 'from setuptools import setup; setup()' develop
+```
+
+- To run search based algorithms CELOE, ELTL and ECII, first install Java 8+ and Maven 3.6.3+
 
 ## Reproducing the reported results
 
@@ -32,6 +34,44 @@ Clone DL-Foil from [bitbucket](https://bitbucket.org/grizzo001/dl-foil.git) into
 
 
 *Open a terminal in NCES2/*
+
+
+- To reproduce NCES2 results in Table 4: ``` python reproduce_nces2.py ```. Use -h for more options, e.g., use `--kb_emb_model Distmult` for the results in the Appendix
+
+- To reproduce NCES2 results in Table 6 ``` python reproduce_nces2_robustness.py ```. Use -h for more options.
+
+
+### DL-Learner (Lehmann et al.)
+
+*Open a terminal and navigate into dllearner/* ``` cd NCES2/dllearner ```
+
+- Reproduce CELOE and ELTL concept learning results: ``` python reproduce_dllearner_experiment.py --algo --kbs --max_runtime ```
+
+*Remark: --kbs is one of carcinogenesis, mutagenesis, semantic_bible, or vicodi*
+
+
+### ECII (Sarker et al.)
+
+*Open a terminal and navigate into ecii/* ``` cd NCES2/ecii/```
+- Download the jar file `ecii_v1.0.0.jar` into ecii/
+
+- Run `python generate_config_ecii.py ` to prepare configuration files
+
+- To start concept learning, run `java -Xms2g -Xmx8g -Xss1g -jar ecii_v1.0.0.jar -b kb/`
+
+- Run `python parse_ecii_output.py ` to parse the output and save the results such as f_measure and runtime
+
+* Here kb is one of carcinogenesis, mutagenesis, semantic_bible, or vicodi *
+
+### EvoLearner (Heindorf et al.)
+
+*Open a terminal and navigate into evolearner/* ``` cd NCES2/evolearner/ ```
+
+- Run `python run_evolearner.py `. Use options to select the knowledge base, save results, or enable logging. Example `python run_evolearner.py --kbs carcinogenesis --save_results True` 
+
+
+## Training NCES2 on our datasets:
+
 - Reproduce training NCES2: ``` python train.py ``` optionally with the following options:
 
 ``` 
@@ -90,49 +130,6 @@ Clone DL-Foil from [bitbucket](https://bitbucket.org/grizzo001/dl-foil.git) into
                         Whether to save the model after training
   ```
 
-- To reproduce evaluation results on concept learning: ``` python reproduce_nces ```. Use -h for more options.
-
-*Remark: --kb is one of carcinogenesis, mutagenesis, semantic_bible, vicodi*
-
-### DL-Learner (Lehmann et al.)
-
-*Open a terminal and navigate into dllearner/* ``` cd NCES2/dllearner```
-- Reproduce CELOE and ELTL concept learning results: ``` python reproduce_dllearner_experiment.py --algo --kb --max_runtime ```
-
-### DL-Foil (Fanizzi et al.)
-
-*Open a terminal and navigate into dl-foil/* ``` cd NCES2/dl-foil```
-
-- Run mvn package
-
-- Run ` python generate_dlfoil_config_all_kbs.py ` to prepare configuration files for all knowledge bases
-
-- Reproduce concept learning results: ` mvn -e exec:java -Dexec.mainClass=it.uniba.di.lacam.ml.DLFoilTest -Dexec.args=DL-Foil2/kb_config.xml `
-
-### ECII (Sarker et al.)
-
-*Open a terminal and navigate into ecii/* ``` cd NCES2/ecii/```
-- Download the jar file `ecii_v1.0.0.jar` into ecii/
-
-- Run `python generate_config_ecii.py ` to prepare configuration files
-
-- To start concept learning, run `java -Xms2g -Xmx8g -Xss1g -jar ecii_v1.0.0.jar -b kb/`
-
-- Run `python parse_ecii_output.py ` to parse the output and save the results such as f_measure and runtime
-
-
-### EvoLearner (Heindorf et al.)
-
-*Open a terminal and navigate into evolearner/* ``` cd NCES2/evolearner/```
-
-- Run `python run_evolearner.py `. Use options to select the knowledge base, save results, or enable logging. Example `python run_evolearner.py --kbs carcinogenesis --save_results True --verbose True` 
-
-
-## How to predict with NCES2
-
-To see example predictions using pretrained NCES2 instances, refer to [predict](https://github.com/fosterreproducibleresearch/NCES2/blob/main/model_prediction.ipynb)
-
-
 
 ## Bring your own data
 
@@ -140,13 +137,7 @@ To train NCES2 on a new knowledge base, create a new folder under datasets and a
 
 - (1) Generating training data for NCES2: `cd generators/` then ` python generate_data.py --kbs your_folder_name `. Use -h for more options. For example, use `--num_rand_samples 500` combined with `--refinement_expressivity 0.6` to increase the amount of training data.
 
-- (2) Computing an embedding for your knowledge base: `cd embeddings/` then ` python compute_embeddings.py --kbs your_folder_name --model_name ConEx `
+- (2) Convert knowledge base to knowledge graph: ```cd generators ``` then ``` python kb_to_kg.py --kbs your_folder_name ```
 
 - (3) Training NCES2 on your data: `cd NCES2/ ` then ` python train.py --kbs your_folder_name `. Use -h to see more options for training, e.g., `--batch_size` or `--epochs`
 
-
-## Start an interactive session with NCES2 (deployment)
-
-Run ` python deploy_nces.py ` in a terminal. Use -h for more options. A public link will be created and valid for 72 hours. Open the link in a web browser. Start running NCES2 by entering learning problem ids or by selecting random learning problems, as in the screenshot below.
-
-![deploy](nces_deployment.png)

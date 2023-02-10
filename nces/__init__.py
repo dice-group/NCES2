@@ -21,7 +21,7 @@ class BaseConceptSynthesis:
                      [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
         vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
                                                     '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
-                                                    'double', 'integer', 'date', 'xsd']
+                                                    'double', 'integer', 'xsd']
         quantified_restriction_values = [str(i) for i in range(1,12)]
         data_values = self.add_data_values(kwargs.knowledge_base_path)
         vocab = vocab + data_values + quantified_restriction_values
@@ -82,9 +82,5 @@ class BaseConceptSynthesis:
     def get_labels(self, target):
         init_tg = copy.deepcopy(target)
         target = self.decompose(target)
-        #try:
         labels = [self.vocab[atm] for atm in target]
-        #except:
-        #    print(init_tg)
-        #    print(target)
         return labels, len(target)

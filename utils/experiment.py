@@ -1,5 +1,6 @@
 import numpy as np, copy
 import torch
+import torch.nn.functional as F
 from tqdm import tqdm
 from collections import defaultdict
 from torch.utils.data import DataLoader
@@ -112,37 +113,23 @@ class Experiment:
             er_vocab[(triple[0], triple[1])].append(triple[2])
         return er_vocab
         
-    @staticmethod
-    def collate_batch(batch):
+    def collate_batch(self, batch):
         pos_emb_list = []
         neg_emb_list = []
         target_tokens_list = []
         target_labels = []
         for pos_emb, neg_emb, label in batch:
+            if pos_emb.ndim != 2:
+                pos_emb = pos_emb.reshape(1, -1)
+            if neg_emb.ndim != 2:
+                neg_emb = neg_emb.reshape(1, -1)
             pos_emb_list.append(pos_emb)
             neg_emb_list.append(neg_emb)
             target_labels.append(label)
-        try:
-            pos_emb_list = pad_sequence(pos_emb_list, batch_first=True, padding_value=0)
-        except:
-            temp_pos = []
-            for t in pos_emb_list:
-                if t.ndim != 2:
-                    temp_pos.append(t.reshape(1, -1))
-                else:
-                    temp_pos.append(t)
-            pos_emb_list = pad_sequence(temp_pos, batch_first=True, padding_value=0)
-            
-        try:
-            neg_emb_list = pad_sequence(neg_emb_list, batch_first=True, padding_value=0)
-        except:
-            temp_neg = []
-            for t in neg_emb_list:
-                if t.ndim != 2:
-                    temp_neg.append(t.reshape(1, -1))
-                else:
-                    temp_neg.append(t)
-            neg_emb_list = pad_sequence(temp_neg, batch_first=True, padding_value=0)
+        pos_emb_list[0] = F.pad(pos_emb_list[0], (0, 0, 0, self.num_examples - pos_emb_list[0].shape[0]), "constant", 0)
+        pos_emb_list = pad_sequence(pos_emb_list, batch_first=True, padding_value=0)
+        neg_emb_list[0] = F.pad(neg_emb_list[0], (0, 0, 0, self.num_examples - neg_emb_list[0].shape[0]), "constant", 0)
+        neg_emb_list = pad_sequence(neg_emb_list, batch_first=True, padding_value=0)
         target_labels = pad_sequence(target_labels, batch_first=True, padding_value=-100)
         return pos_emb_list, neg_emb_list, target_labels
             
@@ -196,6 +183,8 @@ class Experiment:
             t0 = time.time()
             
         train_dataset = CSDataLoader(train_data, self.kwargs)
+        self.num_examples = train_dataset.num_examples
+        print(f"\n***Number of examples per learning problem: {self.num_examples}***\n")
         tc_batch_iterator = 0
         for e in range(epochs):
             train_dataset.load_embeddings(embedding_model)
