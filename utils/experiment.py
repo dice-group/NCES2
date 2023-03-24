@@ -8,14 +8,12 @@ import sys, os, json
 base_path = os.path.dirname(os.path.realpath(__file__)).split('utils')[0]
 sys.path.append(base_path)
 from nces import BaseConceptSynthesis
-from .dataloader import *
+from .dataloader import NCESDataLoader, HeadAndRelationBatchLoader
 from .data import Data
 from nces.synthesizer import ConceptSynthesizer
 from torch.optim.lr_scheduler import ExponentialLR
-from torch.nn import CrossEntropyLoss
 from torch.nn.utils import clip_grad_value_
 from torch.nn.utils.rnn import pad_sequence
-from sklearn.metrics import f1_score, accuracy_score
 import time
 import random
 from argparse import Namespace
@@ -30,6 +28,7 @@ class Experiment:
         self.batch_size = kwargs.batch_size
         self.kb = kwargs.path_to_triples.split("/")[-3]
         self.kb_embedding_data = Data(kwargs)
+        self.load_pretrained = kwargs.load_pretrained
         complete_args = vars(kwargs)
         complete_args.update({"num_entities": len(self.kb_embedding_data.entities),\
                               "num_relations": len(self.kb_embedding_data.relations)})
@@ -126,9 +125,9 @@ class Experiment:
             pos_emb_list.append(pos_emb)
             neg_emb_list.append(neg_emb)
             target_labels.append(label)
-        pos_emb_list[0] = F.pad(pos_emb_list[0], (0, 0, 0, self.num_examples - pos_emb_list[0].shape[0]), "constant", 0)
+        pos_emb_list[0] = F.pad(pos_emb_list[0], (0, 0, 0, self.cs.model.num_examples - pos_emb_list[0].shape[0]), "constant", 0)
         pos_emb_list = pad_sequence(pos_emb_list, batch_first=True, padding_value=0)
-        neg_emb_list[0] = F.pad(neg_emb_list[0], (0, 0, 0, self.num_examples - neg_emb_list[0].shape[0]), "constant", 0)
+        neg_emb_list[0] = F.pad(neg_emb_list[0], (0, 0, 0, self.cs.model.num_examples - neg_emb_list[0].shape[0]), "constant", 0)
         neg_emb_list = pad_sequence(neg_emb_list, batch_first=True, padding_value=0)
         target_labels = pad_sequence(target_labels, batch_first=True, padding_value=-100)
         return pos_emb_list, neg_emb_list, target_labels
@@ -150,7 +149,17 @@ class Experiment:
         print()
         print("{} ({} inducing points) starts training on {} data set \n".format(self.cs.model.name, self.cs.model.num_inds, self.kwargs.knowledge_base_path.split("/")[-2]))
         print("#"*100, "\n")
-        
+        desc1 = kb_emb_model+'_'+self.cs.learner_name
+        desc2 = self.cs.learner_name+'_'+kb_emb_model+'_'+'Emb'
+        if self.load_pretrained:
+            path1 = base_path+f"datasets/{self.kb}/Model_weights/"+desc1+f"_inducing_points{self.cs.model.num_inds}.pt"
+            path2 = base_path+f"datasets/{self.kb}/Model_weights/"+desc2+f"_inducing_points{self.cs.model.num_inds}.pt"
+            try:
+                self.cs.load_pretrained(path1, path2)
+                print("\nUsing pretrained model...\n")
+            except Exception as err:
+                print(err, "\n")
+                print("**** Could not load from pretrained, missing file ****\n")
         ## Make a copy of the model (initialization)
         synthesizer = copy.deepcopy(self.cs.model)
         embedding_model = copy.deepcopy(self.cs.embedding_model)
@@ -163,8 +172,7 @@ class Experiment:
         
         ## Get combined model size
         size1, size2 = self.show_num_learnable_params(synthesizer, embedding_model)
-        desc1 = kb_emb_model+'_'+synthesizer.name
-        desc2 = synthesizer.name+'_'+ kb_emb_model+'_'+'Emb'
+        
         if final:
             desc1 = desc1+'_final'
             desc2 = desc2+'_final'
@@ -182,9 +190,7 @@ class Experiment:
         if record_runtime:
             t0 = time.time()
             
-        train_dataset = CSDataLoader(train_data, self.kwargs)
-        self.num_examples = train_dataset.num_examples
-        print(f"\n***Number of examples per learning problem: {self.num_examples}***\n")
+        train_dataset = NCESDataLoader(train_data, self.kb_embedding_data, self.cs.model.vocab, self.cs.model.inv_vocab, self.kwargs)
         tc_batch_iterator = 0
         for e in range(epochs):
             train_dataset.load_embeddings(embedding_model)
@@ -242,14 +248,14 @@ class Experiment:
             duration = time.time()-t0
             runtime_info = {"Concept synthesizer": synthesizer.name,
                            "Number of Epochs": epochs, "Runtime (s)": duration}
-            if not os.path.exists(base_path+f"datasets/{self.kb}/Runtime/"):
+            if not os.path.exists(base_path+f"datasets/{self.kb}/Runtime"):
                 os.mkdir(base_path+f"datasets/{self.kb}/Runtime")
             with open(base_path+f"datasets/{self.kb}/Runtime/"+"Runtime_"+desc1+f"_inducing_points{synthesizer.num_inds}.json", "w") as file:
                 json.dump(runtime_info, file, indent=3)
                 
         results_dict = {"Synthesizer size": size1, "Embedding model size": size2}
         if test:
-            test_dataset = CSDataLoader(test_data, self.kwargs)
+            test_dataset = NCESDataLoader(test_data, self.kb_embedding_data, self.cs.model.vocab, self.cs.model.inv_vocab, self.kwargs)
             test_dataset.load_embeddings(embedding_model)
             test_dataloader = DataLoader(test_dataset, batch_size=self.batch_size, num_workers=self.num_workers, collate_fn=self.collate_batch, shuffle=False)
             print()
@@ -274,17 +280,16 @@ class Experiment:
         print()
         results_dict.update({"Train max soft acc": max(Train_acc['soft']), "Train max hard acc": max(Train_acc['hard']), "Train min loss": min(Train_loss)})
         results_dict.update({'Vocab size': len(synthesizer.vocab)})
-        if not os.path.exists(base_path+f"datasets/{self.kb}/Results/"):
-            os.mkdir(base_path+f"datasets/{self.kb}/Results/")
+        if not os.path.exists(base_path+f"datasets/{self.kb}/Results"):
+            os.mkdir(base_path+f"datasets/{self.kb}/Results")
         with open(base_path+f"datasets/{self.kb}/Results/"+"Train_Results_"+desc1+f"_inducing_points{synthesizer.num_inds}.json", "w") as file:
                 json.dump(results_dict, file, indent=3)
+        os.makedirs(base_path+f"datasets/{self.kb}/Model_weights/", exist_ok=True) # directory to save trained models
         self.kb_embedding_data.entity2idx.to_csv(base_path+f"datasets/{self.kb}/Model_weights/"+desc2+\
                                                  f"_inducing_points{synthesizer.num_inds}_entity_idx.csv")
         self.kb_embedding_data.relation2idx.to_csv(base_path+f"datasets/{self.kb}/Model_weights/"+desc2+\
                                                    f"_inducing_points{synthesizer.num_inds}_relation_idx.csv")
         if save_model:
-            if not os.path.exists(base_path+f"datasets/{self.kb}/Model_weights/"):
-                os.mkdir(base_path+f"datasets/{self.kb}/Model_weights/")
             torch.save(synthesizer, base_path+f"datasets/{self.kb}/Model_weights/"+desc1+f"_inducing_points{synthesizer.num_inds}.pt")
             torch.save(embedding_model, base_path+f"datasets/{self.kb}/Model_weights/"+desc2+f"_inducing_points{synthesizer.num_inds}.pt")
             print("{} and {} saved".format(synthesizer.name, embedding_model.name))
@@ -293,9 +298,7 @@ class Experiment:
         return plot_data
             
             
-    def train_all_nets(self, List_nets, train_data, test_data, epochs=200, test=False, save_model = False, kb_emb_model='TransE', optimizer = 'Adam', record_runtime=False, final=False):
-        if not os.path.exists(base_path+f"datasets/{self.kb}/Training_curves/"):
-            os.mkdir(base_path+f"datasets/{self.kb}/Training_curves/")
+    def train_all_nets(self, List_nets, train_data, test_data, epochs=200, test=False, save_model = False, kb_emb_model='ConEx', optimizer = 'Adam', record_runtime=False, final=False):
         if not os.path.exists(base_path+f"datasets/{self.kb}/Plot_data/"):
             os.mkdir(base_path+f"datasets/{self.kb}/Plot_data/")
                         

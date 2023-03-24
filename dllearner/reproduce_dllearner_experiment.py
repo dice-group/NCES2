@@ -85,10 +85,10 @@ if __name__ == '__main__':
             if not os.path.exists(currentpath.split("dllearner")[0]+f"datasets/{kb}/Results/"):
                 os.mkdir(currentpath.split("dllearner")[0]+f"datasets/{kb}/Results/")
 
-            with open(currentpath.split("dllearner")[0]+f'datasets/{kb}/Results/concept_learning_results_'+model+'.json', 'w') as file_descriptor1:
+            with open(currentpath.split("dllearner")[0]+f'datasets/{kb}/Results/{model.upper()}_results.json', 'w') as file_descriptor1:
                         json.dump(Result_dict, file_descriptor1, ensure_ascii=False, indent=3)
 
-            with open(currentpath.split("dllearner")[0]+f'datasets/{kb}/Results/concept_learning_avg_results__'+model+'.json', 'w') as file_descriptor2:
+            with open(currentpath.split("dllearner")[0]+f'datasets/{kb}/Results/{model.upper()}_avg_results.json', 'w') as file_descriptor2:
                         json.dump(Avg_result, file_descriptor2, indent=3)
 
             print("Avg results: ", Avg_result)

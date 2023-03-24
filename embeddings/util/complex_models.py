@@ -17,7 +17,7 @@ class Complex(torch.nn.Module):
         super(Complex, self).__init__()
         self.name = 'Complex'
         self.param = param
-        self.embedding_dim = self.param.embedding_dim
+        self.embedding_dim = self.param.embedding_dim//2
         self.num_entities = self.param.num_entities
         self.num_relations = self.param.num_relations
 
@@ -76,7 +76,7 @@ class ConEx(torch.nn.Module):
         self.name = 'ConEx'
         self.loss = torch.nn.BCELoss()
         self.param = params
-        self.embedding_dim = self.param.embedding_dim
+        self.embedding_dim = self.param.embedding_dim//2
         self.num_entities = self.param.num_entities
         self.num_relations = self.param.num_relations
         self.kernel_size = self.param.kernel_size
@@ -105,7 +105,7 @@ class ConEx(torch.nn.Module):
         self.conv1 = torch.nn.Conv2d(in_channels=1, out_channels=self.num_of_output_channels,
                                      kernel_size=(self.kernel_size, self.kernel_size), stride=1, padding=1, bias=True)
         # Formula for convolution output shape: (input_dim + 2* padding - kernel_size) / (stride) + 1
-        self.fc_num_input = ((self.embedding_dim+2-self.kernel_size)+1) * (4+2-4+1) * self.num_of_output_channels 
+        self.fc_num_input = ((self.embedding_dim+2-self.kernel_size)+1) * (4+2-self.kernel_size+1) * self.num_of_output_channels 
         self.fc = torch.nn.Linear(self.fc_num_input, self.embedding_dim * 2)
 
         self.bn_conv1 = torch.nn.BatchNorm2d(self.num_of_output_channels)

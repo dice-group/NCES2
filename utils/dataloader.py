@@ -3,17 +3,16 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)).split('utils')[0])
 sys.path.append(os.path.dirname(os.path.realpath(__file__)).split('utils')[0]+'utils/')
 from nces import BaseConceptSynthesis
 import numpy as np, torch, pandas as pd
-from data import Data
 import random
 import copy
 
-class CSDataLoader(BaseConceptSynthesis, Data, torch.utils.data.Dataset):
-    def __init__(self, data, kwargs):
-        super(CSDataLoader, self).__init__(kwargs)
-        self.data_triples = Data(kwargs)
+class NCESDataLoader(BaseConceptSynthesis, torch.utils.data.Dataset):
+    def __init__(self, data, triples_data, vocab, inv_vocab, kwargs):
+        super(NCESDataLoader, self).__init__(vocab, inv_vocab, kwargs)
+        self.triples_data = triples_data
         self.data_raw = data
-        self.shuffle_examples = kwargs.shuffle_examples
-        
+        self.vocab = vocab
+        self.inv_vocab = inv_vocab
         
     def load_embeddings(self, embedding_model):
         embeddings, _ = embedding_model.get_embeddings()
@@ -27,25 +26,21 @@ class CSDataLoader(BaseConceptSynthesis, Data, torch.utils.data.Dataset):
         key, value = self.data_raw[idx]
         pos = value['positive examples']
         neg = value['negative examples']
-        if self.shuffle_examples:
-            random.shuffle(pos)
-            random.shuffle(neg)
-        datapoint_pos = self.embeddings[self.data_triples.entity2idx.loc[pos].values.squeeze()]
-        datapoint_neg = self.embeddings[self.data_triples.entity2idx.loc[neg].values.squeeze()]
+        datapoint_pos = self.embeddings[self.triples_data.entity2idx.loc[pos].values.squeeze()]
+        datapoint_neg = self.embeddings[self.triples_data.entity2idx.loc[neg].values.squeeze()]
         labels, length = self.get_labels(key)
         return datapoint_pos, datapoint_neg, torch.cat([torch.tensor(labels), self.vocab['PAD']*torch.ones(self.max_length-length)]).long()
     
     
     
-class CSDataLoaderInference(Data, torch.utils.data.Dataset):
+class NCESDataLoaderInference(torch.utils.data.Dataset):
     
-    """This class is similar to CSDataLoader except that labels (class expression strings) are not needed here. This is useful for learning problems whose atoms are not present in the trained models. Still NCES instances are still able to synthesize quality solutions as they do not rely on labels."""
+    """This class is similar to NCESDataLoader except that labels (class expression strings) are not needed here. This is useful for learning problems whose atoms are not present in the trained models. Still NCES instances are still able to synthesize quality solutions as they do not rely on labels."""
     
-    def __init__(self, data, kwargs):
-        super(CSDataLoaderInference, self).__init__(kwargs)
-        self.data_triples = Data(kwargs)
+    def __init__(self, data, triples_data, kwargs):
+        super(NCESDataLoaderInference, self).__init__(kwargs)
+        self.triples_data = triples_data
         self.data_raw = data
-        self.shuffle_examples = kwargs.shuffle_examples
         
         
     def load_embeddings(self, embedding_model):
@@ -60,11 +55,8 @@ class CSDataLoaderInference(Data, torch.utils.data.Dataset):
         key, value = self.data_raw[idx]
         pos = value['positive examples']
         neg = value['negative examples']
-        if self.shuffle_examples:
-            random.shuffle(pos)
-            random.shuffle(neg)
-        datapoint_pos = self.embeddings[self.data_triples.entity2idx.loc[pos].values.squeeze()]
-        datapoint_neg = self.embeddings[self.data_triples.entity2idx.loc[neg].values.squeeze()]
+        datapoint_pos = self.embeddings[self.triples_data.entity2idx.loc[pos].values.squeeze()]
+        datapoint_neg = self.embeddings[self.triples_data.entity2idx.loc[neg].values.squeeze()]
         return datapoint_pos, datapoint_neg
             
         

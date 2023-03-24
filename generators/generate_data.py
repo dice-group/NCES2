@@ -19,7 +19,7 @@ class KBToDataForConceptSynthesis:
    Hence, we export each concept and its examples (eventually positive and negative examples) into json files.  
     """
 
-    def __init__(self, path, rho_name="ExpressRefinement", depth=5, max_child_length=25, refinement_expressivity=0.6, downsample_refinements=True, k=5, num_rand_samples=150):
+    def __init__(self, path, rho_name="ExpressRefinement", max_child_length=25, refinement_expressivity=0.6, downsample_refinements=True, k=5, num_rand_samples=150):
         self.path = path
         self.dl_syntax_renderer = DLSyntaxObjectRenderer()
         self.kb = KnowledgeBase(path=path)
@@ -29,7 +29,7 @@ class KBToDataForConceptSynthesis:
         self.atomic_concept_names: Final = frozenset([self.dl_syntax_renderer.render(a) for a in atomic_concepts])
         rho = ExpressRefinement(knowledge_base=self.kb, max_child_length=max_child_length, sample_fillers_count=k, downsample=downsample_refinements, expressivity=refinement_expressivity) if \
         rho_name == "ExpressRefinement" else ModifiedCELOERefinement(knowledge_base=self.kb)
-        self.lp_gen = ConceptDescriptionGenerator(knowledge_base=self.kb, refinement_operator=rho, depth=depth, num_rand_samples=num_rand_samples)
+        self.lp_gen = ConceptDescriptionGenerator(knowledge_base=self.kb, refinement_operator=rho, num_rand_samples=num_rand_samples)
         
     def compute_class_instances(self, concepts):
         class_instances = []
@@ -81,7 +81,7 @@ class KBToDataForConceptSynthesis:
             num_neg_ex = self.num_examples-num_pos_ex
         return num_pos_ex, num_neg_ex
     
-    def reinforced_example_sampling(self, data_train, data_test, num_subsamples=4):
+    def reinforced_example_sampling(self, data_train, data_test, num_subsamples=2):
         """ Robust sampling to make sure that we cover many examples for each learning problem: some learning problems contain thousands (or millions on large datasets) of examples, and we aim to sample examples. As a result, we sample several times instead of just one time as in naive_example_sampling.
         """
         def sample(pos, neg, n_pos, n_neg):
@@ -170,7 +170,6 @@ if __name__ == '__main__':
 
     parser.add_argument('--kbs', type=str, nargs='+', default=['carcinogenesis'], help='Knowledge base name')
     parser.add_argument('--num_rand_samples', type=int, default=300, help='The number of random samples at each step of the generation process')
-    parser.add_argument('--depth', type=int, default=5, help='The depth of refinements')
     parser.add_argument('--k', type=int, default=10, help='The number of fillers to sample')
     parser.add_argument('--max_child_len', type=int, default=15, help='Maximum child length')
     parser.add_argument('--refinement_expressivity', type=float, default=0.6)
@@ -181,7 +180,7 @@ if __name__ == '__main__':
     for kb in args.kbs:
         with open(f'../datasets/{kb}/data_generation_settings.json', "w") as setting:
             json.dump(vars(args), setting)
-        DataGen = KBToDataForConceptSynthesis(path=f'../datasets/{kb}/{kb}.owl', rho_name=args.rho, depth=args.depth, k=args.k, max_child_length=args.max_child_len, refinement_expressivity=args.refinement_expressivity, downsample_refinements=True, num_rand_samples=args.num_rand_samples)
+        DataGen = KBToDataForConceptSynthesis(path=f'../datasets/{kb}/{kb}.owl', rho_name=args.rho, k=args.k, max_child_length=args.max_child_len, refinement_expressivity=args.refinement_expressivity, downsample_refinements=True, num_rand_samples=args.num_rand_samples)
         data_train, data_test = DataGen.generate_descriptions()
         data_train, data_test = DataGen.reinforced_example_sampling(data_train, data_test)
         DataGen.save_data(data_train, data_test)

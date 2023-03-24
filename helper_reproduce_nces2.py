@@ -1,13 +1,15 @@
 import os, random
-from utils.syntax_checker import SyntaxChecker
+from utils.simple_solution import SimpleSolution
 from utils.evaluator import Evaluator
+from utils.data import Data
 from ontolearn.knowledge_base import KnowledgeBase
 from nces import BaseConceptSynthesis
 from nces.synthesizer import ConceptSynthesizer
 from owlapy.parser import DLSyntaxParser
-from dataloader import CSDataLoader
+from dataloader import NCESDataLoader
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
+import torch.nn.functional as F
 from tqdm import tqdm
 import json
 import torch, pandas as pd
@@ -21,7 +23,6 @@ def before_pad(arg):
             break
         arg_temp.append(atm)
     return arg_temp
-
 
 def compute_accuracy(prediction, target):
     def soft(arg1, arg2):
@@ -53,39 +54,24 @@ def compute_accuracy(prediction, target):
     hard_acc = sum(map(hard, prediction, target))/len(target)
     return soft_acc, hard_acc
 
-def map_to_token(model, idx_array):
-    return model.inv_vocab[idx_array]
-
+num_examples = 1000
 def collate_batch(batch):
     pos_emb_list = []
     neg_emb_list = []
     target_tokens_list = []
     target_labels = []
     for pos_emb, neg_emb, label in batch:
+        if pos_emb.ndim != 2:
+            pos_emb = pos_emb.reshape(1, -1)
+        if neg_emb.ndim != 2:
+            neg_emb = neg_emb.reshape(1, -1)
         pos_emb_list.append(pos_emb)
         neg_emb_list.append(neg_emb)
         target_labels.append(label)
-    try:
-        pos_emb_list = pad_sequence(pos_emb_list, batch_first=True, padding_value=0)
-    except:
-        temp_pos = []
-        for t in pos_emb_list:
-            if t.ndim != 2:
-                temp_pos.append(t.reshape(1, -1))
-            else:
-                temp_pos.append(t)
-        pos_emb_list = pad_sequence(temp_pos, batch_first=True, padding_value=0)
-
-    try:
-        neg_emb_list = pad_sequence(neg_emb_list, batch_first=True, padding_value=0)
-    except:
-        temp_neg = []
-        for t in neg_emb_list:
-            if t.ndim != 2:
-                temp_neg.append(t.reshape(1, -1))
-            else:
-                temp_neg.append(t)
-        neg_emb_list = pad_sequence(temp_neg, batch_first=True, padding_value=0)
+    pos_emb_list[0] = F.pad(pos_emb_list[0], (0, 0, 0, num_examples - pos_emb_list[0].shape[0]), "constant", 0)
+    pos_emb_list = pad_sequence(pos_emb_list, batch_first=True, padding_value=0)
+    neg_emb_list[0] = F.pad(neg_emb_list[0], (0, 0, 0, num_examples - neg_emb_list[0].shape[0]), "constant", 0)
+    neg_emb_list = pad_sequence(neg_emb_list, batch_first=True, padding_value=0)
     target_labels = pad_sequence(target_labels, batch_first=True, padding_value=-100)
     return pos_emb_list, neg_emb_list, target_labels
 
@@ -93,26 +79,36 @@ def predict(kb, models, args):
     data_test_path = f"datasets/{kb}/Test_data/Data.json"
     with open(data_test_path, "r") as file:
         test_data = json.load(file)
-    args.path_to_triples = f"datasets/{kb}/Triples/" ## Loads the smallest dataset triples by default. Only required to intitalize CSDataLoader
-    test_dataset = CSDataLoader(test_data, args)
+    args.path_to_triples = f"datasets/{kb}/Triples/"
+    global num_examples
+    if isinstance(models, list):
+        num_examples = models[0].num_examples
+        vocab = models[0].vocab
+        inv_vocab = models[0].inv_vocab
+    else:
+        num_examples = models.num_examples
+        vocab = models.vocab
+        inv_vocab = models.inv_vocab
+    kb_embedding_data = Data(args)
+    test_dataset = NCESDataLoader(test_data, kb_embedding_data, vocab, inv_vocab, args)
     soft_acc, hard_acc = 0.0, 0.0
     preds = []
     targets = []
     if isinstance(models, list):
         for i, model in enumerate(models):
-            model.eval()
+            model = model.eval()
             scores = []
             num_inds = model.num_inds
             embedding_model = torch.load(f"datasets/{kb}/Model_weights/SetTransformer_{args.kb_emb_model}_Emb_inducing_points{num_inds}.pt",
                                         map_location = torch.device("cpu"))
-            test_dataset.load_embeddings(embedding_model)
+            test_dataset.load_embeddings(embedding_model.eval())
             test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers, collate_fn=collate_batch, shuffle=False)
             for x1, x2, labels in tqdm(test_dataloader):
                 if i == 0:
-                    target_sequence = map_to_token(model, labels)
-                    targets.append(target_sequence)
+                    target_sequence = model.inv_vocab[labels]
+                    targets.append(target_sequence) # The target sequence does not depend on the current model
                 _, sc = model(x1, x2)
-                scores.append(sc) 
+                scores.append(sc.detach()) 
             scores = torch.cat(scores, 0)
             if i == 0:
                 Scores = scores
@@ -126,14 +122,14 @@ def predict(kb, models, args):
         print(f"Average syntactic accuracy, Soft: {soft_acc}%, Hard: {hard_acc}%")
         return pred_sequence, targets
     else:
-        models.eval()
+        models = models.eval()
         num_inds = models.num_inds
         embedding_model = torch.load(f"datasets/{kb}/Model_weights/SetTransformer_{args.kb_emb_model}_Emb_inducing_points{num_inds}.pt",
                                     map_location = torch.device("cpu"))
-        test_dataset.load_embeddings(embedding_model)
+        test_dataset.load_embeddings(embedding_model.eval())
         test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers, collate_fn=collate_batch, shuffle=False)
         for x1, x2, labels in tqdm(test_dataloader):
-            target_sequence = map_to_token(models, labels)
+            target_sequence = models.inv_vocab[labels]
             pred_sequence, _ = models(x1, x2)
             preds.append(pred_sequence)
             targets.append(target_sequence)
@@ -164,9 +160,7 @@ def evaluate_nces(kb_name, num_inds, args, save_results=False, verbose=False):
     print('NCES2 evaluation on {} KB:'.format(kb_name))
     print('#'*50)
     desc = ""
-    if args.shuffle_examples:
-        desc = "_Shuffle"
-    All_metrics = {m: defaultdict(lambda: defaultdict(list)) for m in [f"SetTransformer_I{inds}" for inds in num_inds]}
+    all_metrics = {m: defaultdict(lambda: defaultdict(list)) for m in [f"SetTransformer_I{inds}" for inds in num_inds]}
     print()
     kb = KnowledgeBase(path=f"datasets/{kb_name}/{kb_name}.owl")
     namespace = kb.ontology()._onto.base_iri
@@ -174,117 +168,78 @@ def evaluate_nces(kb_name, num_inds, args, save_results=False, verbose=False):
         namespace = 'http://vicodi.org/ontology#'
     print("KB namespace: ", namespace)
     print()
-    syntax_checker = SyntaxChecker(kb)
+    simpleSolution = SimpleSolution(kb)
     evaluator = Evaluator(kb)
     dl_parser = DLSyntaxParser(namespace = namespace)
-    All_individuals = set(kb.individuals())
-    with open(f"datasets/{kb_name}/Test_data/Data.json", "r") as file:
-        data_test = json.load(file)
-    for model_name in All_metrics.keys():
+    all_individuals = set(kb.individuals())
+    for model_name in all_metrics.keys():
         num_inds = int(model_name.split("I")[-1])
         t0 = time.time()
         predictions, targets = synthesize_class_expressions(kb_name, num_inds, args)
         t1 = time.time()
         duration = (t1-t0)/len(predictions)
+        
         for i, pb_str in enumerate(targets):
             pb_str = "".join(before_pad(pb_str))
             try:
                 end_idx = np.where(predictions[i] == 'PAD')[0][0] # remove padding token
             except IndexError:
-                end_idx = 1
+                end_idx = -1
             pred = predictions[i][:end_idx]
-            #print("Before parsing: ", pred.sum())
-            # In the following, try to repair an expression if one parenthesis is missing
-            succeed = False
-            if (pred=='(').sum() > (pred==')').sum():
-                for i in range(len(pred))[::-1]:
-                    try:
-                        prediction = dl_parser.parse_expression("".join(pred.tolist().insert(i,')')))
-                        succeed = True
-                        break
-                    except Exception:
-                        pass
-                if not succeed:
-                    try:
-                        pred = syntax_checker.correct(predictions[i].sum())
-                        pred = list(syntax_checker.get_suggestions(pred))[-1]
-                        prediction = syntax_checker.get_concept(pred)
-                    except Exception:
-                        print(f"Could not understand expression {pred}")
-                        
-            elif (pred==')').sum() > (pred=='(').sum():
-                for i in range(len(pred)):
-                    try:
-                        prediction = dl_parser.parse_expression("".join(pred.tolist().insert(i,'(')))
-                        succeed = True
-                        break
-                    except Exception:
-                        pass
-                if not succeed:
-                    try:
-                        pred = syntax_checker.correct(predictions[i].sum())
-                        pred = list(syntax_checker.get_suggestions(pred))[-1]
-                        prediction = syntax_checker.get_concept(pred)
-                    except Exception:
-                        print(f"Could not understand expression {pred}")
-            else:
+            try:
+                prediction = dl_parser.parse("".join(pred.tolist()))
+            except Exception:
                 try:
-                    prediction = dl_parser.parse_expression("".join(pred.tolist()))
+                    pred = simpleSolution.predict(predictions[i].sum())
+                    prediction = dl_parser.parse(pred)
                 except Exception:
-                    try: # Try extracting the closest class expression with syntax checker
-                        pred = syntax_checker.correct(predictions[i].sum())
-                        pred = list(syntax_checker.get_suggestions(pred))[-1]
-                        prediction = syntax_checker.get_concept(pred)
-                    except Exception:
-                        print(f"Could not understand expression {pred}")
+                    print(f"Could not understand expression {pred}")
             if prediction is None:
-                prediction = syntax_checker.get_concept(['⊤'])
-            target_expression = dl_parser.parse_expression(pb_str) # The target class expression
-            #try:
+                prediction = dl_parser.parse('⊤')
+            target_expression = dl_parser.parse(pb_str) # The target class expression
             positive_examples = set(kb.individuals(target_expression))
-            negative_examples = All_individuals-positive_examples
+            negative_examples = all_individuals-positive_examples
             try:
                 acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
-            except Exception as e:
+            except Exception as err:
                 print("Parsing error on ", prediction)
-                print(e)
-                prediction = syntax_checker.get_concept(['⊤'])
+                print(err)
+                prediction = dl_parser.parse('⊤')
                 acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
-                
             if verbose:
-                print(f'Problem {i}, Target: {pb_str}, Prediction: {syntax_checker.renderer.render(prediction)}, Acc: {acc}, F1: {f1}')
+                print(f'Problem {i}, Target: {pb_str}, Prediction: {simpleSolution.renderer.render(prediction)}, Acc: {acc}, F1: {f1}')
                 print()
-            All_metrics[model_name]['acc']['values'].append(acc)
+            all_metrics[model_name]['acc']['values'].append(acc)
             try:
-                All_metrics[model_name]['prediction']['values'].append(syntax_checker.renderer.render(prediction))
+                all_metrics[model_name]['prediction']['values'].append(simpleSolution.renderer.render(prediction))
             except:
                 print(f"Error in rendering {prediction}")
-                All_metrics[model_name]['prediction']['values'].append("Unknown")
-            All_metrics[model_name]['f1']['values'].append(f1)
-            All_metrics[model_name]['time']['values'].append(duration)
+                all_metrics[model_name]['prediction']['values'].append("Unknown")
+            all_metrics[model_name]['f1']['values'].append(f1)
+            all_metrics[model_name]['time']['values'].append(duration)
             
-        for metric in All_metrics[model_name]:
+        for metric in all_metrics[model_name]:
             if metric != 'prediction':
-                All_metrics[model_name][metric]['mean'] = [np.mean(All_metrics[model_name][metric]['values'])]
-                All_metrics[model_name][metric]['std'] = [np.std(All_metrics[model_name][metric]['values'])]
+                all_metrics[model_name][metric]['mean'] = [np.mean(all_metrics[model_name][metric]['values'])]
+                all_metrics[model_name][metric]['std'] = [np.std(all_metrics[model_name][metric]['values'])]
         
-        print(model_name+' Speed: {}s +- {} / lp'.format(round(All_metrics[model_name]['time']['mean'][0], 2),\
-                                                               round(All_metrics[model_name]['time']['std'][0], 2)))
-        print(model_name+' Avg Acc: {}% +- {} / lp'.format(round(All_metrics[model_name]['acc']['mean'][0], 2),\
-                                                               round(All_metrics[model_name]['acc']['std'][0], 2)))
-        print(model_name+' Avg F1: {}% +- {} / lp'.format(round(All_metrics[model_name]['f1']['mean'][0], 2),\
-                                                               round(All_metrics[model_name]['f1']['std'][0], 2)))
+        print(model_name+' Speed: {}s +- {} / lp'.format(round(all_metrics[model_name]['time']['mean'][0], 2),\
+                                                               round(all_metrics[model_name]['time']['std'][0], 2)))
+        print(model_name+' Avg Acc: {}% +- {} / lp'.format(round(all_metrics[model_name]['acc']['mean'][0], 2),\
+                                                               round(all_metrics[model_name]['acc']['std'][0], 2)))
+        print(model_name+' Avg F1: {}% +- {} / lp'.format(round(all_metrics[model_name]['f1']['mean'][0], 2),\
+                                                               round(all_metrics[model_name]['f1']['std'][0], 2)))
         print()
         if save_results:
             with open("datasets/"+kb_name+f"/Results/NCES_{args.kb_emb_model}"+desc+".json", "w") as file:
-                json.dump(All_metrics, file, indent=3, ensure_ascii=False)
+                json.dump(all_metrics, file, indent=3, ensure_ascii=False)
 
                 
 def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
     print('#'*50)
     print('NCES2 evaluation on {} KB:'.format(kb_name))
     print('#'*50)
-    All_metrics = {'+'.join(combine): defaultdict(lambda: defaultdict(list)) for combine in [["SetTransformer_I32", "SetTransformer_I64"], \
+    all_metrics = {'+'.join(combine): defaultdict(lambda: defaultdict(list)) for combine in [["SetTransformer_I32", "SetTransformer_I64"], \
                                         ["SetTransformer_I32", "SetTransformer_I128"], ["SetTransformer_I64", "SetTransformer_I128"],\
                                         ["SetTransformer_I32", "SetTransformer_I64", "SetTransformer_I128"]]}
     print()
@@ -294,13 +249,11 @@ def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
         namespace = 'http://vicodi.org/ontology#'
     print("KB namespace: ", namespace)
     print()
-    syntax_checker = SyntaxChecker(kb)
+    simpleSolution = SimpleSolution(kb)
     evaluator = Evaluator(kb)
     dl_parser = DLSyntaxParser(namespace = namespace)
-    All_individuals = set(kb.individuals())
-    with open(f"datasets/{kb_name}/Test_data/Data.json", "r") as file:
-        data_test = json.load(file)
-    for combine in All_metrics.keys():     
+    all_individuals = set(kb.individuals())
+    for combine in all_metrics.keys():     
         t0 = time.time()
         num_inds = [int(model_name.split("I")[-1]) for model_name in combine.split("+")]
         predictions, targets = synthesize_class_expressions(kb_name, num_inds, args)
@@ -311,88 +264,53 @@ def evaluate_ensemble(kb_name, args, save_results=False, verbose=False):
             try:
                 end_idx = np.where(predictions[i] == 'PAD')[0][0] # remove padding token
             except IndexError:
-                end_idx = 1
+                end_idx = -1
             pred = predictions[i][:end_idx]
-            #print("Before parsing: ", pred.sum())
-            succeed = False
-            if (pred=='(').sum() > (pred==')').sum():
-                for i in range(len(pred))[::-1]:
-                    try:
-                        prediction = dl_parser.parse_expression("".join(pred.tolist().insert(i,')')))
-                        succeed = True
-                        break
-                    except Exception:
-                        pass
-                if not succeed:
-                    try:
-                        pred = syntax_checker.correct(predictions[i].sum())
-                        pred = list(syntax_checker.get_suggestions(pred))[-1]
-                        prediction = syntax_checker.get_concept(pred)
-                    except Exception:
-                        print(f"Could not understand expression {pred}")
-            elif (pred==')').sum() > (pred=='(').sum():
-                for i in range(len(pred)):
-                    try:
-                        prediction = dl_parser.parse_expression("".join(pred.tolist().insert(i,'(')))
-                        succeed = True
-                        break
-                    except Exception:
-                        pass
-                if not succeed:
-                    try:
-                        pred = syntax_checker.correct(predictions[i].sum())
-                        pred = list(syntax_checker.get_suggestions(pred))[-1]
-                        prediction = syntax_checker.get_concept(pred)
-                    except Exception:
-                        print(f"Could not understand expression {pred}")
-            else:
+            try:
+                prediction = dl_parser.parse("".join(pred.tolist()))
+            except Exception:
                 try:
-                    prediction = dl_parser.parse_expression("".join(pred.tolist()))
+                    pred = simpleSolution.predict(predictions[i].sum())
+                    prediction = dl_parser.parse(pred)
                 except Exception:
-                    try:
-                        pred = syntax_checker.correct(predictions[i].sum())
-                        pred = list(syntax_checker.get_suggestions(pred))[-1]
-                        prediction = syntax_checker.get_concept(pred)
-                    except Exception:
-                        print(f"Could not understand expression {pred}")
+                    print(f"Could not understand expression {pred}")
             if prediction is None:
-                prediction = syntax_checker.get_concept(['⊤'])
-            target_expression = dl_parser.parse_expression(pb_str) # The target class expression
+                prediction = dl_parser.parse('⊤')
+            target_expression = dl_parser.parse(pb_str) # The target class expression
             positive_examples = set(kb.individuals(target_expression))
-            negative_examples = All_individuals-positive_examples
+            negative_examples = all_individuals-positive_examples
             try:
                 acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
-            except Exception as e:
+            except Exception as err:
                 print("Parsing error on ", prediction)
-                print(e)
-                prediction = syntax_checker.get_concept(['⊤'])
+                print(err)
+                prediction = dl_parser.parse('⊤')
                 acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
-            #acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
             if verbose:
-                print(f'Problem {i}, Target: {pb_str}, Prediction: {syntax_checker.renderer.render(prediction)}, Acc: {acc}, F1: {f1}')
+                print(f'Problem {i}, Target: {pb_str}, Prediction: {simpleSolution.renderer.render(prediction)}, Acc: {acc}, F1: {f1}')
                 print()
-            All_metrics[combine]['acc']['values'].append(acc)
+            all_metrics[combine]['acc']['values'].append(acc)
             try:
-                All_metrics[combine]['prediction']['values'].append(syntax_checker.renderer.render(prediction))
+                all_metrics[combine]['prediction']['values'].append(simpleSolution.renderer.render(prediction))
             except:
-                All_metrics[combine]['prediction']['values'].append("Unknown")
-            All_metrics[combine]['f1']['values'].append(f1)
-            All_metrics[combine]['time']['values'].append(duration)
+                all_metrics[combine]['prediction']['values'].append("Unknown")
+            all_metrics[combine]['f1']['values'].append(f1)
+            all_metrics[combine]['time']['values'].append(duration)
 
-        for metric in All_metrics[combine]:
+        for metric in all_metrics[combine]:
             if metric != 'prediction':
-                All_metrics[combine][metric]['mean'] = [np.mean(All_metrics[combine][metric]['values'])]
-                All_metrics[combine][metric]['std'] = [np.std(All_metrics[combine][metric]['values'])]
+                all_metrics[combine][metric]['mean'] = [np.mean(all_metrics[combine][metric]['values'])]
+                all_metrics[combine][metric]['std'] = [np.std(all_metrics[combine][metric]['values'])]
 
-        print(combine+' Speed: {}s +- {} / lp'.format(round(All_metrics[combine]['time']['mean'][0], 2),\
-                                                               round(All_metrics[combine]['time']['std'][0], 2)))
-        print(combine+' Avg Acc: {}% +- {} / lp'.format(round(All_metrics[combine]['acc']['mean'][0], 2),\
-                                                               round(All_metrics[combine]['acc']['std'][0], 2)))
-        print(combine+' Avg F1: {}% +- {} / lp'.format(round(All_metrics[combine]['f1']['mean'][0], 2),\
-                                                               round(All_metrics[combine]['f1']['std'][0], 2)))
+        print(combine+' Speed: {}s +- {} / lp'.format(round(all_metrics[combine]['time']['mean'][0], 2),\
+                                                               round(all_metrics[combine]['time']['std'][0], 2)))
+        print(combine+' Avg Acc: {}% +- {} / lp'.format(round(all_metrics[combine]['acc']['mean'][0], 2),\
+                                                               round(all_metrics[combine]['acc']['std'][0], 2)))
+        print(combine+' Avg F1: {}% +- {} / lp'.format(round(all_metrics[combine]['f1']['mean'][0], 2),\
+                                                               round(all_metrics[combine]['f1']['std'][0], 2)))
 
         print()
 
     if save_results:
         with open(f"datasets/{kb_name}/Results/NCES_{args.kb_emb_model}_Ensemble.json", "w") as file:
-            json.dump(All_metrics, file, indent=3, ensure_ascii=False)
+            json.dump(all_metrics, file, indent=3, ensure_ascii=False)

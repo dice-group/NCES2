@@ -35,12 +35,12 @@ parser.add_argument('--kbs', type=str, nargs='+', default=['carcinogenesis'],
                     help='Knowledge base name. Check the folder datasets to see all available knowledge bases')
 parser.add_argument('--models', type=str, nargs='+', default=['SetTransformer'], help='Neural models')
 parser.add_argument('--kb_emb_model', type=str, default='ConEx', help='Embedding model name')
+parser.add_argument('--load_pretrained', type=str2bool, default=False, help='Whether to load pretrained models')
 parser.add_argument('--learner_name', type=str, default="SetTransformer", choices=['LSTM', 'GRU', 'SetTransformer'], help='Neural model')
 parser.add_argument('--knowledge_base_path', type=str, default="", help='Path to KB owl file')
 parser.add_argument('--path_to_triples', type=str, default="", help='Path to KG (result of the conversion of KB to KG)')
-parser.add_argument('--learning_rate', type=float, default=3e-4, help='Learning rate')
+parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate')
 parser.add_argument('--embedding_dim', type=int, default=50, help='Number of embedding dimensions')
-parser.add_argument('--input_size', type=int, default=50, help='Number of embedding dimensions in the input')
 parser.add_argument('--num_workers', type=int, default=12, help='Number of workers to use to load training data')
 parser.add_argument('--proj_dim', type=int, default=128, help='The projection dimension for examples')
 parser.add_argument('--num_inds', type=int, default=32, help='Number of induced instances')
@@ -61,19 +61,13 @@ parser.add_argument('--hidden_dropout', type=float, default=0.1, help='Hidden dr
 parser.add_argument('--kernel_size', type=int, default=4, help='Kernel size in ConEx')
 parser.add_argument('--num_of_output_channels', type=int, default=8, help='Number of output channels in ConEx')
 parser.add_argument('--gamma', type=float, default=1.0, help='Margin in TransE embedding model')
-parser.add_argument('--epochs', type=int, default=400, help='Number of training epochs')
-parser.add_argument('--batch_size', type=int, default=256, help='Training batch size')
+parser.add_argument('--epochs', type=int, default=200, help='Number of training epochs')
+parser.add_argument('--batch_size', type=int, default=512, help='Training batch size')
 parser.add_argument('--cross_validate', type=str2bool, default=False, help='Whether to use a 10-fold cross-validation setting')
-parser.add_argument('--shuffle_examples', type=str2bool, default=False, help='Whether to shuffle positive and negative examples in the dataloader')
 parser.add_argument('--test', type=str2bool, default=True, help='Whether to evaluate the concept synthesizer on the test data during training')
 parser.add_argument('--final', type=str2bool, default=False, help='Whether to train the concept synthesizer on test+train data')
 parser.add_argument('--save_model', type=str2bool, default=True, help='Whether to save the model after training')
 args = parser.parse_args()
-
-if args.kb_emb_model not in ['ConEx', 'Complex']:
-    args.input_size = args.embedding_dim
-else:
-    args.input_size = 2 * args.embedding_dim
     
 print("Setting: ", vars(args))
 

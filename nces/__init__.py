@@ -10,44 +10,12 @@ import copy
 class BaseConceptSynthesis:
     """Supervised Machine Learning approach for learning class expressions in ALC from examples"""
     
-    def __init__(self, kwargs):
-        self.knowledge_base_path = kwargs.knowledge_base_path
-        kb = KnowledgeBase(path=self.knowledge_base_path)
-        self.__num_examples__ = min(kwargs.num_examples, kb.individuals_count()//2)
-        self.dl_syntax_renderer = DLSyntaxObjectRenderer()
-        atomic_concepts = list(kb.ontology().classes_in_signature())
-        atomic_concept_names = [self.dl_syntax_renderer.render(a) for a in atomic_concepts]
-        role_names = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()] + \
-                     [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
-        vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
-                                                    '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
-                                                    'double', 'integer', 'xsd']
-        quantified_restriction_values = [str(i) for i in range(1,12)]
-        data_values = self.add_data_values(kwargs.knowledge_base_path)
-        vocab = vocab + data_values + quantified_restriction_values
-        vocab = sorted(set(vocab)) + ['PAD']
-        self.inv_vocab = vocab
-        self.vocab = {vocab[i]:i for i in range(len(vocab))} #dict(map(reversed, enumerate(vocab)))
+    def __init__(self, vocab, inv_vocab, kwargs):
         self.max_length = kwargs.max_length
+        self.vocab = vocab
+        self.inv_vocab = inv_vocab
         self.kwargs = kwargs
         
-    def add_data_values(self, path):
-        with open(path[:path.rfind("/")+1]+"Train_data/Data.json") as file_train:
-            train_data = json.load(file_train)
-        with open(path[:path.rfind("/")+1]+"Test_data/Data.json") as file_test:
-            test_data = json.load(file_test)
-        values = set()
-        for ce in train_data+test_data:
-            ce = ce[0]
-            if '[' in ce:
-                for val in re.findall("\[(.*?)\]", ce):
-                    values.add(val.split(' ')[-1])
-        return list(values)
-        
-    @property
-    def num_examples(self):
-        return self.__num_examples__
-    
     @staticmethod
     def decompose(concept_name: str) -> list:
         """ Decomposes a class expression into a sequence of tokens (atoms) """
@@ -80,7 +48,6 @@ class BaseConceptSynthesis:
     
     
     def get_labels(self, target):
-        init_tg = copy.deepcopy(target)
         target = self.decompose(target)
         labels = [self.vocab[atm] for atm in target]
         return labels, len(target)
