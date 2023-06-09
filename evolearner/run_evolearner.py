@@ -17,8 +17,6 @@ from collections import defaultdict
 import time
 import numpy as np
 
-#setup_logging()
-
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -32,8 +30,7 @@ def str2bool(v):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--kbs', type=str, nargs='+', default=['carcinogenesis'], help='Knowledge base name')
-    parser.add_argument('--save_results', type=str2bool, default=False, help='Whether to save the evaluation results')
+    parser.add_argument('--kbs', type=str, nargs='+', default=['carcinogenesis'], choices=['carcinogenesis', 'mutagenesis', 'semantic_bible', 'vicodi'], help='Knowledge base name')
     parser.add_argument('--verbose', type=str2bool, default=False, help='Whether to print the target and predicted class expressions')
     args = parser.parse_args()
 
@@ -43,24 +40,17 @@ if __name__ == '__main__':
         print(f"\n### On {kb_name.upper()} ###\n")
         with open(f'../datasets/{kb_name}/Test_data/Data.json') as json_file:
             lps = json.load(json_file)
-
         kb = KnowledgeBase(path=f'../datasets/{kb_name}/{kb_name}.owl')
-
         kb_namespace = list(kb.individuals())[0].get_iri().get_namespace()
         kb_prefix = kb_namespace[:kb_namespace.rfind("/")+1]
-        
-        namespace = kb.ontology()._onto.base_iri
-        if kb_name == 'vicodi':
-            namespace = 'http://vicodi.org/ontology#'
-        print()
         evaluator = Evaluator(kb)
-        dl_parser = DLSyntaxParser(namespace = namespace)
-        All_individuals = set(kb.individuals())
+        dl_parser = DLSyntaxParser(namespace = kb_namespace)
+        all_individuals = set(kb.individuals())
         Result_dict = {'F-measure': [], 'Accuracy': [], 'Runtime': [], 'Prediction': [], 'Learned Concept': []}
         Avg_result = defaultdict(lambda: defaultdict(float))
         for str_target_concept, examples in tqdm(lps, desc=f'Learning {len(lps)} problems'):
             model = EvoLearner(knowledge_base=kb, max_runtime=300)
-            p = [kb_prefix+ind for ind in examples['positive examples']] # encode with urllib as required by dllearner ontology manager
+            p = [kb_prefix+ind for ind in examples['positive examples']]
             n = [kb_prefix+ind for ind in examples['negative examples']]
             print('Target concept: ', str_target_concept)
             typed_pos = set(map(OWLNamedIndividual, map(IRI.create, p)))
@@ -70,13 +60,10 @@ if __name__ == '__main__':
             model.fit(lp, verbose=args.verbose)
             t1 = time.time()
             duration = t1-t0
-            if args.save_results:
-                model.save_best_hypothesis(n=1, path='Predictions_{0}'.format(str_target_concept))
-
             for desc in model.best_hypotheses(1):
                 target_expression = dl_parser.parse_expression(str_target_concept) # The target class expression
-                positive_examples = {ind.get_iri().as_str().split("/")[-1] for ind in kb.individuals(target_expression)}
-                negative_examples = All_individuals-positive_examples
+                positive_examples = set(kb.individuals(target_expression))
+                negative_examples = all_individuals-positive_examples
                 acc, f1 = evaluator.evaluate(desc.concept, positive_examples, negative_examples)
                 print(f"*** Acc: {acc}, F1: {f1} ***")
                 Result_dict['F-measure'].append(f1)
@@ -96,10 +83,10 @@ if __name__ == '__main__':
         if not os.path.exists(f"../datasets/{kb_name}/Results/"):
             os.mkdir(f"../datasets/{kb_name}/Results/")
 
-        with open(f'../datasets/{kb_name}/Results/concept_learning_results_evolearner.json', 'w') as file_descriptor1:
+        with open(f'../datasets/{kb_name}/Results/EvoLearner_results.json', 'w') as file_descriptor1:
                     json.dump(Result_dict, file_descriptor1, ensure_ascii=False, indent=3)
 
-        with open(f'../datasets/{kb_name}/Results/concept_learning_avg_results__evolearner.json', 'w') as file_descriptor2:
+        with open(f'../datasets/{kb_name}/Results/EvoLearner_avg_results.json', 'w') as file_descriptor2:
                     json.dump(Avg_result, file_descriptor2, indent=3)
 
         print("\nnAvg results: ", Avg_result)

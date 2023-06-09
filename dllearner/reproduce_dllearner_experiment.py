@@ -3,15 +3,13 @@ import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
 import os, sys
-from sklearn.model_selection import train_test_split
-
+from owlapy.render import DLSyntaxObjectRenderer
+from owlapy.parser import DLSyntaxParser
 import urllib.parse
-
 currentpath = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(currentpath.split("dllearner")[0])
-
+from utils.evaluator import Evaluator
 from binders import DLLearnerBinder
-from utils.concept_length import concept_length
 from ontolearn.knowledge_base import KnowledgeBase
 
 if __name__ == '__main__':
@@ -30,14 +28,17 @@ if __name__ == '__main__':
         kb_path = currentpath.split("dllearner")[0]+f'datasets/{kb}/{kb}.owl'
         # To download DL-learner,  https://github.com/SmartDataAnalytics/DL-Learner/releases.
         dl_learner_binary_path = currentpath.split("dllearner")[0]+'dllearner-1.4.0/'
-        knowledge_base = KnowledgeBase(path=kb_path)
-        kb_namespace = list(knowledge_base.individuals())[0].get_iri().get_namespace()
+        KB = KnowledgeBase(path=kb_path)
+        all_individuals = set(KB.individuals())
+        kb_namespace = list(KB.individuals())[0].get_iri().get_namespace()
         kb_prefix = kb_namespace[:kb_namespace.rfind("/")+1]
-
+        evaluator = Evaluator(KB)
+        dl_parser = DLSyntaxParser(namespace = kb_namespace)
+        dlsr = DLSyntaxObjectRenderer()
         for model in args.algo:
             algo = DLLearnerBinder(binary_path=dl_learner_binary_path, kb_path=kb_path, model=model)
             #{'F-measure': [], 'Prediction': [], 'Learned Concept': [], 'Runtime': []} 
-            Result_dict = {'F-measure': [], 'Accuracy': [], 'Runtime': [], 'Prediction': [], 'Length': [], 'Learned Concept': []}
+            Result_dict = {'F-measure': [], 'Accuracy': [], 'Runtime': [], 'Prediction': [], 'Learned Concept': []}
             Avg_result = defaultdict(lambda: defaultdict(float))
             print("#"*60)
             print(f"{model.upper()} on "+kb_path.split("/")[-2]+" knowledge base")
@@ -48,32 +49,23 @@ if __name__ == '__main__':
                 n = [urllib.parse.quote(kb_prefix+ind) for ind in examples['negative examples']]
                 t0 = time.time()
                 try:
-                    best_pred_algo = algo.fit(pos=p, neg=n, max_runtime=args.max_runtime).best_hypotheses() # Start learning
+                    best_pred_algo = algo.fit(pos=p, neg=n, max_runtime=args.max_runtime).best_hypotheses()["Prediction"] # Start learning
                 except Exception as err:
-                    print("\n",err)
-                    best_pred_algo = {'Model': model, 'Prediction': '', 'Accuracy': 0.0, 'F-measure': 0.0}
+                    print(err)
+                    best_pred_algo = None #{'Model': model, 'Prediction': '', 'Accuracy': 0.0, 'F-measure': 0.0}
                 t1 = time.time()
                 duration = t1-t0
-                print('Best prediction: ', best_pred_algo)
-                print()
-                if model == 'ocel': # No F-measure for OCEL
-                    Result_dict['F-measure'].append(-100.)
-                else:
-                    Result_dict['F-measure'].append(best_pred_algo['F-measure'])
-                Result_dict['Accuracy'].append(best_pred_algo['Accuracy'])
-                if not 'Runtime' in best_pred_algo or best_pred_algo['Runtime'] is None:
-                    Result_dict['Runtime'].append(duration)
-                else:
-                    Result_dict['Runtime'].append(best_pred_algo['Runtime'])
-                if best_pred_algo['Prediction'] is None:
-                    Result_dict['Prediction'].append('None')
-                    Result_dict['Length'].append(10)
-                    Result_dict['Learned Concept'].append(str_target_concept)
-                else:
-                    Result_dict['Prediction'].append(best_pred_algo['Prediction'])
-                    Result_dict['Length'].append(concept_length(best_pred_algo['Prediction']))
-                    Result_dict['Learned Concept'].append(str_target_concept)
-
+                target_expression = dl_parser.parse(str_target_concept) # The target class expression
+                prediction = dl_parser.parse(best_pred_algo) if best_pred_algo is not None else dl_parser.parse('⊤')
+                positive_examples = set(KB.individuals(target_expression))
+                negative_examples = all_individuals-positive_examples
+                acc, f1 = evaluator.evaluate(prediction, positive_examples, negative_examples)
+                print(f"*** Acc: {acc}, F1: {f1} ***")
+                Result_dict['F-measure'].append(f1)
+                Result_dict['Accuracy'].append(acc)
+                Result_dict['Runtime'].append(duration)
+                Result_dict['Prediction'].append(dlsr.render(prediction))
+                Result_dict['Learned Concept'].append(str_target_concept)
             for key in Result_dict:
                 if key in ['Prediction', 'Learned Concept']: continue
                 Avg_result[key]['mean'] = np.mean(Result_dict[key])
