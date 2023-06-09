@@ -9,9 +9,7 @@ from ontolearn.learning_problem import PosNegLPStandard
 from owlapy.model import OWLClass, OWLNamedIndividual, IRI
 from owlapy.render import DLSyntaxObjectRenderer
 from owlapy.parser import DLSyntaxParser
-from ontolearn.utils import setup_logging
 import argparse
-import urllib.parse
 from tqdm import tqdm
 from collections import defaultdict
 import time

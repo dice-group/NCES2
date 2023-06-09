@@ -1,4 +1,4 @@
-name: nces
+name: nces2
 channels:
   - pytorch
   - anaconda

@@ -1,5 +1,6 @@
-#!/bin/bash
-wget https://hobbitdata.informatik.uni-leipzig.de/NCES2/Datasets.zip -O ./Method/Datasets.zip
-wget https://hobbitdata.informatik.uni-leipzig.de/NCES2/pretrained.zip -O ./Method/pretrained.zip
-unzip ./Method/Datasets.zip ./Method/pretrained.zip
-rm -f ./Method/Datasets.zip ./Method/pretrained.zip
+! wget https://hobbitdata.informatik.uni-leipzig.de/NCES2/datasets.zip
+! wget https://hobbitdata.informatik.uni-leipzig.de/NCES2/nces1.zip
+! unzip datasets.zip
+! unzip nces1.zip
+! rm -f datasets.zip
+! rm -f nces1.zip
