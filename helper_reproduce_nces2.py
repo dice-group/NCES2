@@ -12,7 +12,7 @@ from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 from tqdm import tqdm
 import json
-import torch, pandas as pd
+import torch
 import numpy as np, time
 from collections import defaultdict
 
@@ -58,7 +58,6 @@ num_examples = 1000
 def collate_batch(batch):
     pos_emb_list = []
     neg_emb_list = []
-    target_tokens_list = []
     target_labels = []
     for pos_emb, neg_emb, label in batch:
         if pos_emb.ndim != 2:

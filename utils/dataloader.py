@@ -37,8 +37,8 @@ class NCESDataLoaderInference(torch.utils.data.Dataset):
     
     """This class is similar to NCESDataLoader except that labels (class expression strings) are not needed here. This is useful for learning problems whose atoms are not present in the trained models. Still NCES instances are still able to synthesize quality solutions as they do not rely on labels."""
     
-    def __init__(self, data, triples_data, kwargs):
-        super(NCESDataLoaderInference, self).__init__(kwargs)
+    def __init__(self, data, triples_data):
+        super().__init__()
         self.triples_data = triples_data
         self.data_raw = data
         
