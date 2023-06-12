@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 import sys, os, json
 base_path = os.path.dirname(os.path.realpath(__file__)).split('utils')[0]
 sys.path.append(base_path)
-from nces import BaseConceptSynthesis
+from nces2 import BaseConceptSynthesis
 from .dataloader import NCESDataLoader, HeadAndRelationBatchLoader
 from .data import Data
 from nces.synthesizer import ConceptSynthesizer
@@ -136,7 +136,7 @@ class Experiment:
     def map_to_token(self, idx_array):
         return self.cs.model.inv_vocab[idx_array]
     
-    def train(self, train_data, test_data, epochs=200, test=False, save_model = False, kb_emb_model="ConEx",\
+    def train(self, train_data, test_data, epochs=200, test=False, save_model = False, save_path="", kb_emb_model="ConEx",\
               optimizer = 'Adam', record_runtime=False, final=False):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         train_on_gpu = torch.cuda.is_available()
@@ -152,8 +152,8 @@ class Experiment:
         desc1 = kb_emb_model+'_'+self.cs.learner_name
         desc2 = self.cs.learner_name+'_'+kb_emb_model+'_'+'Emb'
         if self.load_pretrained:
-            path1 = base_path+f"datasets/{self.kb}/Model_weights/"+desc1+f"_inducing_points{self.cs.model.num_inds}.pt"
-            path2 = base_path+f"datasets/{self.kb}/Model_weights/"+desc2+f"_inducing_points{self.cs.model.num_inds}.pt"
+            path1 = base_path+f"{save_path}/Model_weights/"+desc1+f"_inducing_points{self.cs.model.num_inds}.pt"
+            path2 = base_path+f"{save_path}/Model_weights/"+desc2+f"_inducing_points{self.cs.model.num_inds}.pt"
             try:
                 self.cs.load_pretrained(path1, path2)
                 print("\nUsing pretrained model...\n")
@@ -248,9 +248,9 @@ class Experiment:
             duration = time.time()-t0
             runtime_info = {"Concept synthesizer": synthesizer.name,
                            "Number of Epochs": epochs, "Runtime (s)": duration}
-            if not os.path.exists(base_path+f"datasets/{self.kb}/Runtime"):
-                os.mkdir(base_path+f"datasets/{self.kb}/Runtime")
-            with open(base_path+f"datasets/{self.kb}/Runtime/"+"Runtime_"+desc1+f"_inducing_points{synthesizer.num_inds}.json", "w") as file:
+            if not os.path.exists(base_path+f"{save_path}/Runtime"):
+                os.mkdir(base_path+f"{save_path}/Runtime")
+            with open(base_path+f"{save_path}/Runtime/"+"Runtime_"+desc1+f"_inducing_points{synthesizer.num_inds}.json", "w") as file:
                 json.dump(runtime_info, file, indent=3)
                 
         results_dict = {"Synthesizer size": size1, "Embedding model size": size2}
@@ -280,34 +280,34 @@ class Experiment:
         print()
         results_dict.update({"Train max soft acc": max(Train_acc['soft']), "Train max hard acc": max(Train_acc['hard']), "Train min loss": min(Train_loss)})
         results_dict.update({'Vocab size': len(synthesizer.vocab)})
-        if not os.path.exists(base_path+f"datasets/{self.kb}/Results"):
-            os.mkdir(base_path+f"datasets/{self.kb}/Results")
-        with open(base_path+f"datasets/{self.kb}/Results/"+"Train_Results_"+desc1+f"_inducing_points{synthesizer.num_inds}.json", "w") as file:
+        if not os.path.exists(base_path+f"{save_path}/Results"):
+            os.mkdir(base_path+f"{save_path}/Results")
+        with open(base_path+f"{save_path}/Results/"+"Train_Results_"+desc1+f"_inducing_points{synthesizer.num_inds}.json", "w") as file:
                 json.dump(results_dict, file, indent=3)
-        os.makedirs(base_path+f"datasets/{self.kb}/Model_weights/", exist_ok=True) # directory to save trained models
-        self.kb_embedding_data.entity2idx.to_csv(base_path+f"datasets/{self.kb}/Model_weights/"+desc2+\
+        os.makedirs(base_path+f"{save_path}/Model_weights/", exist_ok=True) # directory to save trained models
+        self.kb_embedding_data.entity2idx.to_csv(base_path+f"{save_path}/Model_weights/"+desc2+\
                                                  f"_inducing_points{synthesizer.num_inds}_entity_idx.csv")
-        self.kb_embedding_data.relation2idx.to_csv(base_path+f"datasets/{self.kb}/Model_weights/"+desc2+\
+        self.kb_embedding_data.relation2idx.to_csv(base_path+f"{save_path}/Model_weights/"+desc2+\
                                                    f"_inducing_points{synthesizer.num_inds}_relation_idx.csv")
         if save_model:
-            torch.save(synthesizer, base_path+f"datasets/{self.kb}/Model_weights/"+desc1+f"_inducing_points{synthesizer.num_inds}.pt")
-            torch.save(embedding_model, base_path+f"datasets/{self.kb}/Model_weights/"+desc2+f"_inducing_points{synthesizer.num_inds}.pt")
+            torch.save(synthesizer.state_dict(), base_path+f"{save_path}/Model_weights/"+desc1+f"_inducing_points{synthesizer.num_inds}.pt")
+            torch.save(embedding_model.state_dict(), base_path+f"{save_path}/Model_weights/"+desc2+f"_inducing_points{synthesizer.num_inds}.pt")
             print("{} and {} saved".format(synthesizer.name, embedding_model.name))
             print()
         plot_data = (np.array(Train_acc['soft']), np.array(Train_acc['hard']), Train_loss)
         return plot_data
             
             
-    def train_all_nets(self, List_nets, train_data, test_data, epochs=200, test=False, save_model = False, kb_emb_model='ConEx', optimizer = 'Adam', record_runtime=False, final=False):
-        if not os.path.exists(base_path+f"datasets/{self.kb}/Plot_data/"):
-            os.mkdir(base_path+f"datasets/{self.kb}/Plot_data/")
+    def train_all_nets(self, List_nets, train_data, test_data, epochs=200, test=False, save_model = False, save_path="", kb_emb_model='ConEx', optimizer = 'Adam', record_runtime=False, final=False):
+        if not os.path.exists(base_path+f"{save_path}/Plot_data/"):
+            os.mkdir(base_path+f"{save_path}/Plot_data/")
                         
         for net in List_nets:
             self.cs.learner_name = net
             desc = kb_emb_model+'_'+net
             self.cs.refresh()
-            train_soft_acc, train_hard_acc, train_l = self.train(train_data, test_data, epochs, test, save_model, kb_emb_model, optimizer, record_runtime, final)
-            with open(base_path+f"datasets/{self.kb}/Plot_data/"+desc+f"_inducing_points{self.cs.model.num_inds}.json", "w") as plot_file:
+            train_soft_acc, train_hard_acc, train_l = self.train(train_data, test_data, epochs, test, save_model, save_path=save_path, kb_emb_model, optimizer, record_runtime, final)
+            with open(base_path+f"{save_path}/Plot_data/"+desc+f"_inducing_points{self.cs.model.num_inds}.json", "w") as plot_file:
                 json.dump({"soft acc": list(train_soft_acc), "hard acc": list(train_hard_acc), "loss": list(train_l)}, plot_file, indent=3)
 
             

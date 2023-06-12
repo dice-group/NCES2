@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import sys, os
-base_path = os.path.dirname(os.path.realpath(__file__)).split('nces')[0]
+base_path = os.path.dirname(os.path.realpath(__file__)).split('nces2')[0]
 sys.path.append(base_path)
 from .models import SetTransformer
 from embeddings.util.complex_models import *
@@ -13,6 +13,8 @@ class ConceptSynthesizer:
         self.kwargs = kwargs
         self.learner_name = kwargs.learner_name
         self.kb_emb_model = kwargs.kb_emb_model
+        self.model = None
+        self.embedding_model = None
     
     def get_synthesizer(self):
         try:
@@ -40,7 +42,9 @@ class ConceptSynthesizer:
         self.embedding_model = self.get_embedding_model()
         
     def load_pretrained(self, path_synthesizer, path_embedding):
-        self.model = torch.load(path_synthesizer, map_location=torch.device('cpu'))
-        self.embedding_model = torch.load(path_embedding, map_location=torch.device('cpu'))
+        if self.model is None:
+            self.refresh()
+        self.model.load_state_dict(torch.load(path_synthesizer, map_location=torch.device('cpu')))
+        self.embedding_model.load_state_dict(torch.load(path_embedding, map_location=torch.device('cpu')))
            
     

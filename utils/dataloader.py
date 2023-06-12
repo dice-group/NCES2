@@ -1,7 +1,7 @@
 import os, sys
 sys.path.append(os.path.dirname(os.path.realpath(__file__)).split('utils')[0])
 sys.path.append(os.path.dirname(os.path.realpath(__file__)).split('utils')[0]+'utils/')
-from nces import BaseConceptSynthesis
+from nces2 import BaseConceptSynthesis
 import numpy as np, torch, pandas as pd
 import random
 import copy
@@ -35,7 +35,7 @@ class NCESDataLoader(BaseConceptSynthesis, torch.utils.data.Dataset):
     
 class NCESDataLoaderInference(torch.utils.data.Dataset):
     
-    """This class is similar to NCESDataLoader except that labels (class expression strings) are not needed here. This is useful for learning problems whose atoms are not present in the trained models. Still NCES instances are still able to synthesize quality solutions as they do not rely on labels."""
+    """This class is similar to NCESDataLoader except that labels (class expression strings) are not needed here. This is useful for learning problems whose atoms are not present in the trained models. Still NCES2 instances are able to synthesize quality solutions as they do not rely on labels."""
     
     def __init__(self, data, triples_data):
         super().__init__()
