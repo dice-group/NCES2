@@ -72,8 +72,8 @@ with open(f"settings.json", "w") as setting:
     json.dump(vars(args), setting)
 
 for kb in args.kbs:
-    data_path = f"datasets_ablation/{kb}" if args.ablation else f"datasets/{kb}"
-    data_train_path = f"{data_path}/Train_data/Data.json"
+    data_path = f"datasets/{kb}"
+    data_train_path = f"{data_path}/Train_data/Data_{args.ablation}.json" if args.ablation else f"{data_path}/Train_data/Data.json"
     with open(data_train_path, "r") as file:
         data_train = json.load(file)
 
@@ -82,17 +82,16 @@ for kb in args.kbs:
         with open(data_test_path, "r") as file:
             data_test = json.load(file)
     else:
-        data_train = list(data_train.items())
-    
-    args.knowledge_base_path = f"datasets/{kb}/{kb}.owl"
-    args.path_to_triples = f"datasets/{kb}/Triples/"
+        data_test = []
+    args.knowledge_base_path = f"{data_path}/{kb}.owl"
+    args.path_to_triples = f"{data_path}/Triples/"
     for num_inds in args.all_num_inds:
         args.num_inds = num_inds
-        experiment = Experiment(args)
+        experiment = Experiment(data_train, data_test, args)
         final = args.final
         test = args.test
         if args.final and not args.ablation:
             data_train = data_train + data_test
             test = False
-        experiment.train_all_nets(args.models, data_train, data_test, epochs=args.epochs, test=test, save_model=args.save_model, save_path=data_path,
+        experiment.train_all_nets(args.models, data_train, data_test, epochs=args.epochs, test=test, save_model=args.save_model, save_path=data_path, ablation_type=args.ablation,
                                   kb_emb_model=args.kb_emb_model, optimizer=args.opt, record_runtime=True, final=final)

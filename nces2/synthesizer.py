@@ -9,19 +9,21 @@ from embeddings.util.real_models import *
 import pandas as pd
 
 class ConceptSynthesizer:
-    def __init__(self, kwargs):
+    def __init__(self, vocab, num_examples, kwargs):
         self.kwargs = kwargs
         self.learner_name = kwargs.learner_name
         self.kb_emb_model = kwargs.kb_emb_model
         self.model = None
         self.embedding_model = None
+        self.vocab = vocab
+        self.num_examples = num_examples
     
     def get_synthesizer(self):
         try:
             assert self.learner_name == "SetTransformer", "Wrong model name, ignoring..."
         except:
             pass
-        return SetTransformer(self.kwargs)
+        return SetTransformer(self.vocab, self.num_examples, self.kwargs)
             
             
     def get_embedding_model(self):

@@ -31,12 +31,6 @@ class KBToDataForConceptSynthesis:
         rho_name == "ExpressRefinement" else ModifiedCELOERefinement(knowledge_base=self.kb)
         self.lp_gen = ConceptDescriptionGenerator(knowledge_base=self.kb, refinement_operator=rho, num_rand_samples=num_rand_samples)
         
-    def compute_class_instances(self, concepts):
-        class_instances = []
-        for concept in tqdm(concepts, desc="Computing instances"):
-            class_instances.append((self.kb.individuals_set(concept), concept))
-        return class_instances
-    
     def generate_descriptions(self):
         print()
         print("#"*60)

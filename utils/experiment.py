@@ -10,18 +10,21 @@ sys.path.append(base_path)
 from nces2 import BaseConceptSynthesis
 from .dataloader import NCESDataLoader, HeadAndRelationBatchLoader
 from .data import Data
-from nces.synthesizer import ConceptSynthesizer
+from nces2.synthesizer import ConceptSynthesizer
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.nn.utils import clip_grad_value_
 from torch.nn.utils.rnn import pad_sequence
 import time
 import random
+import re
 from argparse import Namespace
 torch.multiprocessing.set_sharing_strategy('file_system')
+from ontolearn.knowledge_base import KnowledgeBase
+from owlapy.render import DLSyntaxObjectRenderer
 
 class Experiment:
     
-    def __init__(self, kwargs):
+    def __init__(self, data_train, data_test, kwargs):
         self.decay_rate = kwargs.decay_rate
         self.clip_value = kwargs.grad_clip_value
         self.num_workers = kwargs.num_workers
@@ -33,8 +36,40 @@ class Experiment:
         complete_args.update({"num_entities": len(self.kb_embedding_data.entities),\
                               "num_relations": len(self.kb_embedding_data.relations)})
         complete_args = Namespace(**complete_args)
-        self.cs = ConceptSynthesizer(complete_args)
         self.kwargs = complete_args
+        vocab, num_examples = self.build_nces2_vocabulary(data_train, data_test, self.kwargs)
+        self.cs = ConceptSynthesizer(vocab, num_examples, complete_args)
+        
+        
+    def build_nces2_vocabulary(self, data_train, data_test, args):
+        def add_data_values(path):
+            print("\n*** Finding relevant data values ***")
+            values = set()
+            for ce, lp in data_train+data_test:
+                if '[' in ce:
+                    for val in re.findall("\[(.*?)\]", ce):
+                        values.add(val.split(' ')[-1])
+            print("*** Done! ***\n")
+            print("Added values: ", values)
+            print()
+            return list(values)
+        
+        kb = KnowledgeBase(path=args.knowledge_base_path)
+        renderer = DLSyntaxObjectRenderer()
+        atomic_concepts = list(kb.ontology().classes_in_signature())
+        atomic_concept_names = [renderer.render(a) for a in atomic_concepts]
+        role_names = [rel.get_iri().get_remainder() for rel in kb.ontology().object_properties_in_signature()] + \
+                     [rel.get_iri().get_remainder() for rel in kb.ontology().data_properties_in_signature()]
+        vocab = atomic_concept_names + role_names + ['⊔', '⊓', '∃', '∀', '¬', '⊤', '⊥', '.', ' ', '(', ')',\
+                                                    '⁻', '≤', '≥', 'True', 'False', '{', '}', ':', '[', ']',
+                                                    'double', 'integer', 'date', 'xsd']
+        quantified_restriction_values = [str(i) for i in range(1,12)]
+        data_values = add_data_values(args.knowledge_base_path)
+        vocab = vocab + data_values + quantified_restriction_values
+        vocab = sorted(set(vocab)) + ['PAD']
+        print("Vocabulary size: ", len(vocab))
+        num_examples = min(args.num_examples, kb.individuals_count()//2)
+        return vocab, num_examples
         
     
     def before_pad(self, arg):
@@ -136,7 +171,7 @@ class Experiment:
     def map_to_token(self, idx_array):
         return self.cs.model.inv_vocab[idx_array]
     
-    def train(self, train_data, test_data, epochs=200, test=False, save_model = False, save_path="", kb_emb_model="ConEx",\
+    def train(self, train_data, test_data, epochs=200, test=False, save_model = False, save_path="", ablation_type="", kb_emb_model="ConEx",\
               optimizer = 'Adam', record_runtime=False, final=False):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         train_on_gpu = torch.cuda.is_available()
@@ -149,8 +184,8 @@ class Experiment:
         print()
         print("{} ({} inducing points) starts training on {} data set \n".format(self.cs.model.name, self.cs.model.num_inds, self.kwargs.knowledge_base_path.split("/")[-2]))
         print("#"*100, "\n")
-        desc1 = kb_emb_model+'_'+self.cs.learner_name
-        desc2 = self.cs.learner_name+'_'+kb_emb_model+'_'+'Emb'
+        desc1 = kb_emb_model+'_'+self.cs.learner_name+'_'+ablation_type if ablation_type else kb_emb_model+'_'+self.cs.learner_name
+        desc2 = self.cs.learner_name+'_'+kb_emb_model+'_'+'Emb'+'_'+ablation_type if ablation_type else self.cs.learner_name+'_'+kb_emb_model+'_'+'Emb'
         if self.load_pretrained:
             path1 = base_path+f"{save_path}/Model_weights/"+desc1+f"_inducing_points{self.cs.model.num_inds}.pt"
             path2 = base_path+f"{save_path}/Model_weights/"+desc2+f"_inducing_points{self.cs.model.num_inds}.pt"
@@ -298,15 +333,15 @@ class Experiment:
         return plot_data
             
             
-    def train_all_nets(self, List_nets, train_data, test_data, epochs=200, test=False, save_model = False, save_path="", kb_emb_model='ConEx', optimizer = 'Adam', record_runtime=False, final=False):
+    def train_all_nets(self, List_nets, train_data, test_data, epochs=200, test=False, save_model = False, save_path="", ablation_type='', kb_emb_model='ConEx', optimizer = 'Adam', record_runtime=False, final=False):
         if not os.path.exists(base_path+f"{save_path}/Plot_data/"):
             os.mkdir(base_path+f"{save_path}/Plot_data/")
                         
         for net in List_nets:
             self.cs.learner_name = net
-            desc = kb_emb_model+'_'+net
+            desc = kb_emb_model+'_'+net+'_'+ablation_type if ablation_type else kb_emb_model+'_'+net
             self.cs.refresh()
-            train_soft_acc, train_hard_acc, train_l = self.train(train_data, test_data, epochs, test, save_model, save_path=save_path, kb_emb_model, optimizer, record_runtime, final)
+            train_soft_acc, train_hard_acc, train_l = self.train(train_data, test_data, epochs, test, save_model, save_path, ablation_type, kb_emb_model, optimizer, record_runtime, final)
             with open(base_path+f"{save_path}/Plot_data/"+desc+f"_inducing_points{self.cs.model.num_inds}.json", "w") as plot_file:
                 json.dump({"soft acc": list(train_soft_acc), "hard acc": list(train_hard_acc), "loss": list(train_l)}, plot_file, indent=3)
 
