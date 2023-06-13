@@ -117,7 +117,7 @@ def synthesize_class_expressions(kb, test_data, vocab, num_examples, num_inds, a
 
 def evaluate_nces(kb_name, num_inds, ablation_type, args, save_results=False, verbose=False):
     print('#'*50)
-    print('NCES2 evaluation on {} KB:'.format(kb_name))
+    print(f"NCES2^{ablation_type.upper()} evaluation on {kb_name} KB:")
     print('#'*50)
     desc = f"{ablation_type}"
     all_metrics = {m: defaultdict(lambda: defaultdict(list)) for m in [f"SetTransformer_I{inds}" for inds in num_inds]}

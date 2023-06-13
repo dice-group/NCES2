@@ -45,6 +45,15 @@ cd Ontolearn, python -c 'from setuptools import setup; setup()' develop
 
 - To reproduce NCES2 results (Table 4): ``` python reproduce_nces2.py ```. Use -h for more options, e.g., use `--kb_emb_model Distmult` for the results in the Appendix
 
+- To reproduce ablation results (Table 6): ``` python reproduce_nces2_ablation.py ```. Use `--ablation_type alc_1` or `--ablation_type alchiqd_0` to select the ablation to run. Use -h to view available options.
+
+
+
+### NCES1 (Kouagou et al.)
+
+*Open a terminal in NCES2/*
+
+- To run NCES1 (Table 6): ``` python reproduce_nces1.py ```
 
 
 ### DL-Learner (Lehmann et al.)
