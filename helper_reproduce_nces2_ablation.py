@@ -193,5 +193,5 @@ def evaluate_nces(kb_name, num_inds, ablation_type, args, save_results=False, ve
                                                                round(all_metrics[model_name]['f1']['std'][0], 2)))
         print()
         if save_results:
-            with open("datasets/"+kb_name+f"/Results/NCES2_{args.kb_emb_model}"+desc+".json", "w") as file:
+            with open("datasets/"+kb_name+f"/Results/NCES2_{args.kb_emb_model}_"+desc+".json", "w") as file:
                 json.dump(all_metrics, file, indent=3, ensure_ascii=False)
