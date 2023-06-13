@@ -30,7 +30,6 @@ def build_nces2_vocabulary(data_train, data_test, kb, args):
         print("Added values: ", values)
         print()
         return list(values)
-
     renderer = DLSyntaxObjectRenderer()
     individuals = [ind.get_iri().as_str().split("/")[-1] for ind in kb.individuals()]
     atomic_concepts = list(kb.ontology().classes_in_signature())

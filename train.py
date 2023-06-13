@@ -31,7 +31,7 @@ def str2bool(v):
         raise ValueError('Invalid boolean value.')
         
 parser = argparse.ArgumentParser()
-parser.add_argument('--ablation', type=str, default='', choices=['', 'alc_0', 'alc_1'], help='Which ablation to perform: alc without improved data generator (alc_0) or alc with improved data generator (alc_1)')
+parser.add_argument('--ablation', type=str, default='', choices=['alc_1', 'alchiqd_0'], help='Which ablation to perform: alc with improved data generator (alc_1) or alchiqd without improved data generator (alchiqd_0)')
 parser.add_argument('--all_num_inds', type=int, nargs='+', default=[32, 64, 128], help='Number of induced instances provided as a list')
 parser.add_argument('--batch_size', type=int, default=512, help='Training batch size')
 parser.add_argument('--decay_rate', type=float, default=0.0, help='Decay rate for the optimizer')
