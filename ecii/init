@@ -1,0 +1,5 @@
+for kb in carcinogenesis mutagenesis semantic_bible vicodi
+do
+    mkdir $kb
+    cp -f ../datasets/$kb/$kb.owl ./$kb
+done

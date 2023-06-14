@@ -36,12 +36,12 @@ cd Ontolearn, python -c 'from setuptools import setup; setup()' develop
 
 ## Reproducing the reported results
 
+- First download datasets and pretrained models: ```bash download_data```
+
 ### NCES2 (Ours)
 
 
 *Open a terminal in NCES2/*
-
-- First download datasets and pretrained models: ```bash download_data```
 
 - To reproduce NCES2 results (Table 4): ``` python reproduce_nces2.py ```. Use -h for more options, e.g., use `--kb_emb_model Distmult` for the results in the Appendix
 
@@ -68,6 +68,9 @@ cd Ontolearn, python -c 'from setuptools import setup; setup()' develop
 ### ECII (Sarker et al.)
 
 *Open a terminal and navigate into ecii/* ``` cd NCES2/ecii/```
+
+- Run `bash init` to prepare subdirectories (copy ontologies into the directory ecii) 
+
 - Download the jar file `ecii_v1.0.0.jar` into ecii/. The file can be found here: https://github.com/md-k-sarker/ecii-expr/blob/master/system/ecii_v1.0.0.jar
 
 - Run `python generate_config_ecii.py ` to prepare configuration files
