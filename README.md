@@ -36,7 +36,7 @@ cd Ontolearn, python -c 'from setuptools import setup; setup()' develop
 
 ## Reproducing the reported results
 
-- First download datasets and pretrained models: ```bash download_data```
+- First download datasets and pretrained models: `cd NCES2/` then `bash download_data```
 
 ### NCES2 (Ours)
 
