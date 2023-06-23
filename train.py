@@ -31,7 +31,7 @@ def str2bool(v):
         raise ValueError('Invalid boolean value.')
         
 parser = argparse.ArgumentParser()
-parser.add_argument('--ablation', type=str, default='', choices=['alc_1', 'alchiqd_0'], help='Which ablation to perform: alc with improved data generator (alc_1) or alchiqd without improved data generator (alchiqd_0)')
+parser.add_argument('--ablation_type', type=str, default='', choices=['alc_1', 'alchiqd_0'], help='Which ablation to perform: alc with improved data generator (alc_1) or alchiqd without improved data generator (alchiqd_0)')
 parser.add_argument('--all_num_inds', type=int, nargs='+', default=[32, 64, 128], help='Number of induced instances provided as a list')
 parser.add_argument('--batch_size', type=int, default=512, help='Training batch size')
 parser.add_argument('--decay_rate', type=float, default=0.0, help='Decay rate for the optimizer')
@@ -73,11 +73,11 @@ with open(f"settings.json", "w") as setting:
 
 for kb in args.kbs:
     data_path = f"datasets/{kb}"
-    data_train_path = f"{data_path}/Train_data/Data_{args.ablation}.json" if args.ablation else f"{data_path}/Train_data/Data.json"
+    data_train_path = f"{data_path}/Train_data/Data_{args.ablation_type}.json" if args.ablation_type else f"{data_path}/Train_data/Data.json"
     with open(data_train_path, "r") as file:
         data_train = json.load(file)
 
-    if not args.ablation:
+    if not args.ablation_type:
         data_test_path = f"{data_path}/Test_data/Data.json"
         with open(data_test_path, "r") as file:
             data_test = json.load(file)
@@ -90,8 +90,8 @@ for kb in args.kbs:
         experiment = Experiment(data_train, data_test, args)
         final = args.final
         test = args.test
-        if args.final and not args.ablation:
+        if args.final and not args.ablation_type:
             data_train = data_train + data_test
             test = False
-        experiment.train_all_nets(args.models, data_train, data_test, epochs=args.epochs, test=test, save_model=args.save_model, save_path=data_path, ablation_type=args.ablation,
+        experiment.train_all_nets(args.models, data_train, data_test, epochs=args.epochs, test=test, save_model=args.save_model, save_path=data_path, ablation_type=args.ablation_type,
                                   kb_emb_model=args.kb_emb_model, optimizer=args.opt, record_runtime=True, final=final)
