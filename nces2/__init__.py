@@ -1,12 +1,3 @@
-import os, torch, sys
-sys.path.append(os.path.dirname(os.path.realpath(__file__)).split('base')[0])
-from ontolearn.knowledge_base import KnowledgeBase
-from typing import Final
-from owlapy.render import DLSyntaxObjectRenderer
-import json
-import re
-import copy
-
 class BaseConceptSynthesis:
     """Supervised Machine Learning approach for learning class expressions in ALC from examples"""
     

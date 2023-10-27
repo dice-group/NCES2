@@ -5,8 +5,7 @@ class Evaluator:
         self.kb = kb
         
     def evaluate(self, prediction, pos_examples, neg_examples):
-        all_individuals = set(self.kb.individuals())
         instances = set(self.kb.individuals(prediction))
-        f1 = F1.score(pos_examples, instances)
-        acc = Accuracy.score(pos_examples, neg_examples, instances, all_individuals)
+        f1 = F1.score(pos_examples, neg_examples, instances)
+        acc = Accuracy.score(pos_examples, neg_examples, instances)
         return 100*acc, 100*f1

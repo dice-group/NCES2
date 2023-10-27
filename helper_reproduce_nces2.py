@@ -16,6 +16,7 @@ import json
 import torch
 import numpy as np, time
 from collections import defaultdict
+import re
 
 
 def build_nces2_vocabulary(data_train, data_test, kb, args):
