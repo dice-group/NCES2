@@ -29,7 +29,7 @@ git clone https://github.com/dice-group/Ontolearn.git
 then
 
 ``` 
-cd Ontolearn, python -c 'from setuptools import setup; setup()' develop
+cd Ontolearn && git checkout 0.5.4 && python -c 'from setuptools import setup; setup()' develop
 ```
 
 - To run search based algorithms CELOE, ELTL and ECII, first install Java 8+ and Maven 3.6.3+
