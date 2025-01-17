@@ -7,7 +7,7 @@ Neural Class Expression Synthesis in ALCHIQ(D)
 Clone this repository: 
 
 ```
-git clone --branch 0.5.4 --depth 1 https://github.com/dice-group/NCES2.git
+git clone https://github.com/dice-group/NCES2.git
 ```
 
 Make sure Anaconda3 is installed in your working environment then run the following to install all required librairies for NCES2:
