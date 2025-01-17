@@ -1,5 +1,5 @@
 # NCES2
-Neural Class Expression Synthesis in ALCHIQ(D)
+This repository implements [Neural Class Expression Synthesis in ALCHIQ(D), ECML PKDD 2023](https://link.springer.com/chapter/10.1007/978-3-031-43421-1_12)
 
 
 ## Installation
